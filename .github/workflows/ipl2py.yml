@@ -1,0 +1,59 @@
+name: ipl2py
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip setuptools
+          pip install ".[dev]"
+      
+      - name: List all installed packages
+        run: pip freeze
+
+      - name: Build docs
+        run: |
+          pushd docs
+          make
+
+      - name: Lint
+        run: |
+          black --check .
+          flake8 .
+          isort --check-only --profile black .
+          mypy .
+
+      - name: Test
+        run: |
+          pytest
+
+      - name: Deploy docs
+        if: github.repository_owner == 'equinor' && github.ref == 'refs/heads/main' && matrix.python-version == '3.8'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs/_build/html

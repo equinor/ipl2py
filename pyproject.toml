@@ -1,0 +1,72 @@
+[build-system]
+requires = [
+    "setuptools>=45",
+    "setuptools_scm[toml]>=6.2",
+]
+
+[tool.setuptools_scm]
+write_to = "src/ipl2py/version.py"
+
+[project]
+name = "ipl2py"
+description = "Source-to-source compiler from the RMS IPL language into Python"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Equinor", email = "msfe@equinor.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Natural Language :: English",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
+dynamic = ["version"]
+dependencies = [
+    "lark",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "coverage",
+    "flake8",
+    "furo",
+    "isort",
+    "mypy",
+    "myst-parser",
+    "pytest",
+    "pytest-cov",
+    "sphinx",
+    "sphinx-argparse",
+    "sphinx-copybutton",
+]
+
+[project.scripts]
+ipl2py = "ipl2py.__main__:main"
+
+[project.urls]
+repository = "https://github.com/equinor/ipl2py"
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules --ignore=docs --cov=ipl2py"
+
+[tool.coverage.run]
+omit = [
+    "src/ipl2py/__init__.py",
+    "src/ipl2py/__main__.py",
+    "src/ipl2py/version.py",
+    "src/ipl2py/utils.py",
+]
