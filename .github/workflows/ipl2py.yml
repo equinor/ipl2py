@@ -37,20 +37,31 @@ jobs:
         run: pip freeze
 
       - name: Build docs
+        if: ${{ always() }} 
         run: |
           pushd docs
           make
 
-      - name: Lint
-        run: |
-          black --check .
-          flake8 .
-          isort --check-only --profile black .
-          mypy .
+      - name: Lint with black
+        if: ${{ always() }} 
+        run: black --check .
+
+      - name: Lint with flake8
+        if: ${{ always() }} 
+        run: flake8 .
+
+      - name: Lint with isort
+        if: ${{ always() }} 
+        run: isort --check .
+
+      - name: Check typing with mypy
+        if: ${{ always() }} 
+        run: mypy src
 
       - name: Test
+        if: ${{ always() }} 
         run: |
-          pytest
+          pytest tests
 
       - name: Deploy docs
         if: github.repository_owner == 'equinor' && github.ref == 'refs/heads/main' && matrix.python-version == '3.8'

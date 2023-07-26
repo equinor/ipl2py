@@ -1,6 +1,6 @@
 # ipl2py
 
-[![subscript](https://github.com/equinor/ipl2py/actions/workflows/ipl2py.yml/badge.svg)](https://github.com/equinor/ipl2py/actions/workflows/ipl2py.yml)
+[![ipl2py](https://github.com/equinor/ipl2py/actions/workflows/ipl2py.yml/badge.svg)](https://github.com/equinor/ipl2py/actions/workflows/ipl2py.yml)
 ![Python
 Version](https://img.shields.io/badge/python-3.8%20|%203.9%20|%203.10%20|%203.11-blue.svg)
 [![License: GPL v3](https://img.shields.io/github/license/equinor/ipl2py)](https://www.gnu.org/licenses/gpl-3.0)
@@ -9,6 +9,10 @@ Version](https://img.shields.io/badge/python-3.8%20|%203.9%20|%203.10%20|%203.11
 **ipl2py** is a source-to-source compiler. It compiles the
 [RMS](https://www.aspentech.com/en/products/sse/aspen-rms) IPL scripting
 language into Python compatible with the RMS Python environment.
+
+## Current status
+
+**In development!** This package does not yet generate Python code.
 
 ---
 
@@ -62,18 +66,17 @@ generate and transform parse trees before code generation.
 
 To run the tests, just invoke:
 ```shell
-pytest
+pytest tests
 ```
 
 Before creating a pull request ensure that all of the following pass:
-error:
 ```shell
 black .
 flake8 .
 isort .
-mypy .
+mypy src
 ```
 
 ## Documentation
 
-Forthcoming!
+The documentation is [available here](https://github.com/equinor/ipl2py)
