@@ -1,4 +1,6 @@
-from lark import Token, Tree
+from lark import Token
+
+from ipl2py.tree import Tree
 
 # This file contains expressions and their expected parse tree representation
 expressions = [

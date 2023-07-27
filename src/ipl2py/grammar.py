@@ -1,4 +1,6 @@
-from .types import IplTypes
+from .ipl import SysDef, Type
+
+_sysdefs = [f'"{sd.value[1:]}"' for sd in SysDef]
 
 GRAMMAR = rf"""
 start: stmt*
@@ -68,16 +70,9 @@ subscript_list: (expr_stmt ",")~0..2 expr_stmt
      | "(" expr_stmt ")"
 
 // .1 for priority over NAME
-SYSDEF.1: "@" ("GRIDMODELS"
-     | "HORIZONS"
-     | "X" ["1".."8"] | "Y" ["1".."8"] | "Z" ["1".."8"]
-     | "dX" | "dY" | "dZ"
-     | "I" | "J" | "K"
-     | "N_GRIDMODELS"
-     | "N_WELLS"
-     | "POPDOWN")
+SYSDEF.1: "@" ({"|".join([sd for sd in _sysdefs])})
 BOOL.1: /(?<!\w)(TRUE|FALSE)(?!\w)/
-TYPE.1: /(?<!\w)({"|".join([type.value for type in IplTypes])})(?!\w)/x
+TYPE.1: /(?<!\w)({"|".join([type.value for type in Type])})(?!\w)/x
 
 // IPL allows ' literals of any quantity before and/or after the string...
 STRING : /(?:')*("[NON_ASCII]*.*?(?<!\\)(\\\\)*?")(?:')*/

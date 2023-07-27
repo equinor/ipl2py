@@ -1,6 +1,7 @@
-from lark import Token, Tree
+from lark import Token
 
-from ipl2py.types import IplTypes
+from ipl2py.ipl import Type
+from ipl2py.tree import Tree
 
 
 def test_empty_module(parse_tree):
@@ -21,21 +22,21 @@ Bool c
             Tree(
                 "decl_stmt",
                 [
-                    Token("TYPE", IplTypes.INT.value),
+                    Token("TYPE", Type.INT.value),
                     Tree("decl", [Token("NAME", "a")]),
                 ],
             ),
             Tree(
                 "decl_stmt",
                 [
-                    Token("TYPE", IplTypes.FLOAT.value),
+                    Token("TYPE", Type.FLOAT.value),
                     Tree("decl", [Token("NAME", "b")]),
                 ],
             ),
             Tree(
                 "decl_stmt",
                 [
-                    Token("TYPE", IplTypes.BOOL.value),
+                    Token("TYPE", Type.BOOL.value),
                     Tree("decl", [Token("NAME", "c")]),
                 ],
             ),
@@ -58,14 +59,14 @@ Float b // z
             Tree(
                 "decl_stmt",
                 [
-                    Token("TYPE", IplTypes.INT.value),
+                    Token("TYPE", Type.INT.value),
                     Tree("decl", [Token("NAME", "a")]),
                 ],
             ),
             Tree(
                 "decl_stmt",
                 [
-                    Token("TYPE", IplTypes.FLOAT.value),
+                    Token("TYPE", Type.FLOAT.value),
                     Tree("decl", [Token("NAME", "b")]),
                 ],
             ),
@@ -97,7 +98,7 @@ ENDFUNCTION // abc
                             Tree(
                                 "decl_stmt",
                                 [
-                                    Token("TYPE", IplTypes.INT.value),
+                                    Token("TYPE", Type.INT.value),
                                     Tree(
                                         "decl_assign",
                                         [
@@ -153,14 +154,14 @@ ENDIF
             Tree(
                 "decl_stmt",
                 [
-                    Token("TYPE", IplTypes.STRING.value),
+                    Token("TYPE", Type.STRING.value),
                     Tree("decl", [Token("NAME", "text")]),
                 ],
             ),
             Tree(
                 "decl_stmt",
                 [
-                    Token("TYPE", IplTypes.BOOL.value),
+                    Token("TYPE", Type.BOOL.value),
                     Tree(
                         "decl_assign",
                         [
@@ -173,7 +174,7 @@ ENDIF
             Tree(
                 "func_def",
                 [
-                    Token("TYPE", IplTypes.STRING.value),
+                    Token("TYPE", Type.STRING.value),
                     Token("NAME", "getHello"),
                     None,  # arg_list
                     Tree(
@@ -182,7 +183,7 @@ ENDIF
                             Tree(
                                 "decl_stmt",
                                 [
-                                    Token("TYPE", IplTypes.STRING.value),
+                                    Token("TYPE", Type.STRING.value),
                                     Tree(
                                         "decl_assign",
                                         [
@@ -200,7 +201,7 @@ ENDIF
             Tree(
                 "func_def",
                 [
-                    Token("TYPE", IplTypes.STRING.value),
+                    Token("TYPE", Type.STRING.value),
                     Token("NAME", "getWorld"),
                     None,  # arg_list
                     Tree(
@@ -218,7 +219,7 @@ ENDIF
                     Tree(
                         "param",
                         [
-                            Token("TYPE", IplTypes.STRING.value),
+                            Token("TYPE", Type.STRING.value),
                             Tree("decl", [Token("NAME", "text")]),
                         ],
                     ),

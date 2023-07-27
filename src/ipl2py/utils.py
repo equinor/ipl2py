@@ -2,20 +2,9 @@ from lark import Tree
 
 
 def get_test_tree() -> str:
-    """Put IPL strings in here for testing during development."""
-    return """
-// 2
-IF TRUE THEN // 3
-    // 4
-    IF TRUE THEN // 5
-        HALT // 6
-    ELSE // 7
-        HALT // 8
-    ENDIF // 9
-    // 10
-ENDIF // 11
-// 12
-    """
+    """Put IPL strings in here for testing during development.
+    Take them out before making a PR :-)"""
+    return ""
 
 
 def print_assigned_comments(tree: Tree) -> None:
