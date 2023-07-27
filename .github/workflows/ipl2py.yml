@@ -36,12 +36,6 @@ jobs:
       - name: List all installed packages
         run: pip freeze
 
-      - name: Build docs
-        if: ${{ always() }} 
-        run: |
-          pushd docs
-          make
-
       - name: Lint with black
         if: ${{ always() }} 
         run: black --check .
@@ -62,6 +56,17 @@ jobs:
         if: ${{ always() }} 
         run: |
           pytest tests
+
+      - name: Assert test function(s) cleaned up
+        if: ${{ always() }}
+        run: |
+          python -c "from ipl2py.utils import get_test_tree; assert get_test_tree() == ''"
+
+      - name: Build docs
+        if: ${{ always() }} 
+        run: |
+          pushd docs
+          make
 
       - name: Deploy docs
         if: github.repository_owner == 'equinor' && github.ref == 'refs/heads/main' && matrix.python-version == '3.8'

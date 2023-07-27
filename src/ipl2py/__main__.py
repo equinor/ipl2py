@@ -1,7 +1,7 @@
 import logging
 from argparse import ArgumentParser, Namespace
 
-from ipl2py import __version__, parse
+from ipl2py import __version__, compile
 
 from .utils import get_test_tree
 
@@ -90,8 +90,8 @@ def parse_args() -> Namespace:
 
 def main():
     args = parse_args()
-
     logging.basicConfig(level=args.loglevel)
+
     if args.code:
         content = args.code
     elif args.infile:
@@ -99,12 +99,12 @@ def main():
     else:
         content = get_test_tree()
 
-    tree = parse(content, include_comments=False if args.no_comments else True)
+    ast = compile(content, include_comments=False if args.no_comments else True)
 
     if args.pretty:
-        print(tree.pretty())
+        print(ast.pretty())
     else:
-        print(tree)
+        print(ast)
 
 
 if __name__ == "__main__":

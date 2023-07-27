@@ -1,9 +1,10 @@
 import copy
 
 import pytest
-from lark import Token, Tree
+from lark import Token
 
-from ipl2py.types import IplTypes
+from ipl2py.ipl import Type
+from ipl2py.tree import Tree
 
 from .expressions import expressions
 
@@ -37,8 +38,8 @@ def test_simple_if_stmt(parse_tree, content):
 
 
 def test_if_stmt_with_comment(parse_tree):
-    content = f"""
-IF {"TRUE"} THEN
+    content = """
+IF TRUE THEN
     // a
 // b
         // c
@@ -390,7 +391,7 @@ def test_simple_functions(parse_tree, content):
             Tree(
                 "func_def",
                 [
-                    Token("TYPE", IplTypes.BOOL.value),
+                    Token("TYPE", Type.BOOL.value),
                     Token("NAME", "f"),
                     None,  # No param_list
                     Tree(
@@ -399,7 +400,7 @@ def test_simple_functions(parse_tree, content):
                             Tree(
                                 "decl_stmt",
                                 [
-                                    Token("TYPE", IplTypes.INT.value),
+                                    Token("TYPE", Type.INT.value),
                                     Tree(
                                         "decl_assign",
                                         [
@@ -458,7 +459,7 @@ def test_function_param_list(parse_tree, content, func_type):
                             Tree(
                                 "param",
                                 [
-                                    Token("TYPE", IplTypes.INT.value),
+                                    Token("TYPE", Type.INT.value),
                                     Tree(
                                         "decl_3d",
                                         [Token("NAME", "a")],
@@ -468,7 +469,7 @@ def test_function_param_list(parse_tree, content, func_type):
                             Tree(
                                 "param",
                                 [
-                                    Token("TYPE", IplTypes.BOOL.value),
+                                    Token("TYPE", Type.BOOL.value),
                                     Tree(
                                         "decl_assign",
                                         [
@@ -481,7 +482,7 @@ def test_function_param_list(parse_tree, content, func_type):
                             Tree(
                                 "param",
                                 [
-                                    Token("TYPE", IplTypes.STRING.value),
+                                    Token("TYPE", Type.STRING.value),
                                     Tree(
                                         "decl",
                                         [Token("NAME", "c")],
@@ -509,5 +510,5 @@ def test_function_param_list(parse_tree, content, func_type):
     )
     if func_type == "func_def":
         expected_iter = expected.find_data("func_def")
-        next(expected_iter).children.insert(0, Token("TYPE", IplTypes.INT.value))
+        next(expected_iter).children.insert(0, Token("TYPE", Type.INT.value))
     assert tree == expected

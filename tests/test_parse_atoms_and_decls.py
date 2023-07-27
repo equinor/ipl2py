@@ -1,10 +1,11 @@
 import pytest
-from lark import Token, Tree
+from lark import Token
 from lark.exceptions import UnexpectedToken
 
-from ipl2py.types import IplTypes
+from ipl2py.ipl import Type
+from ipl2py.tree import Tree
 
-ipl_types = [t.value for t in IplTypes]
+ipl_types = [t.value for t in Type]
 
 
 @pytest.mark.parametrize(

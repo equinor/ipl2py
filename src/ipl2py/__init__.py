@@ -1,5 +1,6 @@
 from importlib.metadata import PackageNotFoundError, version
 
+from .compile import compile
 from .parse import parse
 
 try:
@@ -14,5 +15,6 @@ __author__ = "Equinor"
 __version__ = _version
 
 __all__ = [
+    "compile",
     "parse",
 ]

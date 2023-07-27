@@ -1,8 +1,11 @@
 import logging
 from typing import List, Mapping, Tuple, Union
 
-from lark import Token, Tree
+import lark
+from lark import Token
 from lark.visitors import Visitor_Recursive
+
+from .tree import Tree
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +71,7 @@ class CommentVisitor(Visitor_Recursive):
         logger.debug("Comments from line %d to %d: %s", from_line, to_line, comments)
         return comments
 
-    def _get_node_bounds(self, node: Union[Tree, Token]) -> Tuple[int, int]:
+    def _get_node_bounds(self, node: Union[Tree, lark.Tree, Token]) -> Tuple[int, int]:
         """Gets the start and end line of a tree in the originl source."""
         if isinstance(node, Tree):
             try:
@@ -95,17 +98,10 @@ class CommentVisitor(Visitor_Recursive):
         )
         setattr(node.meta, attr, comments)
 
-    def _set_comments_attrs(self, node) -> None:
-        setattr(node.meta, self.HEADER_COMMENTS, [])
-        setattr(node.meta, self.INLINE_COMMENTS, [])
-        setattr(node.meta, self.FOOTER_COMMENTS, [])
-
     def _set_prev_end_line(self, end_line: int) -> None:
         self._prev_end_line = end_line + 1
 
     def start(self, node: Tree) -> None:
-        self._set_comments_attrs(node)
-
         last_comment_end_line = 1
         if len(self._mapped_comments) > 0:
             last_comment_end_line = list(self._mapped_comments)[-1]
@@ -146,8 +142,6 @@ class CommentVisitor(Visitor_Recursive):
         self._set_prev_end_line(end_line)
 
     def suite(self, node: Tree) -> None:
-        self._set_comments_attrs(node)
-
         line, suite_end_line = self._get_node_bounds(node)
         end_line = self._compound_end_line
         _, last_child_end_line = self._get_node_bounds(node.children[-1])
@@ -165,8 +159,6 @@ class CommentVisitor(Visitor_Recursive):
         self._set_prev_end_line(end_line)
 
     def __default__(self, node: Tree) -> None:
-        self._set_comments_attrs(node)
-
         line, end_line = self._get_node_bounds(node)
         self._assign_comments_to(node, self.HEADER_COMMENTS, self._prev_end_line, line)
 
