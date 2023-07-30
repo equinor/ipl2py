@@ -1,12 +1,11 @@
 from enum import Enum
 from typing import Dict, List, Tuple, Union
 
-from lark import Token
+from lark import Token, Tree
 from lark.visitors import Visitor_Recursive
 
 from .exceptions import CompilationError, SymbolCollision
 from .ipl import Type
-from .tree import Tree
 
 
 class SymbolTableType(str, Enum):

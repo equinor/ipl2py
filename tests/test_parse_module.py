@@ -1,7 +1,6 @@
-from lark import Token
+from lark import Token, Tree
 
 from ipl2py.ipl import Type
-from ipl2py.tree import Tree
 
 
 def test_empty_module(parse_tree):

@@ -1,7 +1,5 @@
 import pytest
-from lark import Token
-
-from ipl2py.tree import Tree
+from lark import Token, Tree
 
 from .asserts import assert_root, assert_tree
 from .expressions import expressions

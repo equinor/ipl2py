@@ -1,13 +1,12 @@
 import logging
 from typing import Callable, Dict, List, Union
 
-from lark import Lark, Token
+from lark import Lark, Token, Tree
 from lark.exceptions import ParseError, UnexpectedInput, UnexpectedToken
 
 from .grammar import GRAMMAR
-from .transformer import TokenTransformer
-from .tree import Tree
-from .visitor import CommentVisitor
+from .ipl import SysDef, Type
+from .visitors import CommentVisitor
 
 logger = logging.getLogger(__name__)
 
@@ -15,15 +14,25 @@ LexerCallback = Callable[[Token], Union[Token, None]]
 
 
 def _parse(content: str, include_comments: bool) -> Tree:
+    callbacks: Dict[str, LexerCallback] = {
+        "BOOL": lambda token: token.update(
+            value=False if token.value == "FALSE" else True
+        ),
+        "FLOAT": lambda token: token.update(value=float(token.value)),
+        "INT": lambda token: token.update(value=int(token.value)),
+        "STRING": lambda token: token.update(value=token.value[1:-1]),
+        "SYSDEF": lambda token: token.update(value=SysDef(token.value)),
+        "TYPE": lambda token: token.update(value=Type(token.value)),
+    }
+
     comments: List[Token] = []
-
-    def _comments_callback(token: Token) -> None:
-        # Strip leading //
-        token = token.update(value=token.value[2:].strip())
-        comments.append(token)
-
-    callbacks: Dict[str, LexerCallback] = {}
     if include_comments:
+
+        def _comments_callback(token: Token) -> None:
+            # Strip leading //
+            token = token.update(value=token.value[2:].strip())
+            comments.append(token)
+
         callbacks["COMMENT"] = _comments_callback
 
     parser = Lark(
@@ -43,8 +52,7 @@ def _parse(content: str, include_comments: bool) -> Tree:
 
     if comments:
         CommentVisitor(comments).visit_topdown(tree)
-    # mypy doesn't track that we've provided our own tree class
-    return tree  # type: ignore
+    return tree
 
 
 def parse(content: str, include_comments=True) -> Tree:
@@ -54,5 +62,4 @@ def parse(content: str, include_comments=True) -> Tree:
     :param include_comments: Include comments in the tree.
     """
     tree = _parse(content, include_comments)
-    tree = TokenTransformer().transform(tree)
     return tree

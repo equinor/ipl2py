@@ -1,10 +1,9 @@
 import copy
 
 import pytest
-from lark import Token
+from lark import Token, Tree
 
 from ipl2py.ipl import Type
-from ipl2py.tree import Tree
 
 from .expressions import expressions
 
