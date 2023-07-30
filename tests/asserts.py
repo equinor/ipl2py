@@ -1,6 +1,4 @@
-from lark import Token
-
-from ipl2py.tree import Tree
+from lark import Token, Tree
 
 # These are meant to be used when a parse tree becomes too deeply nested
 # to sanely reconstruct it as an expected case.

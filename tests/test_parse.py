@@ -1,10 +1,9 @@
 import pytest
-from lark import Token
+from lark import Token, Tree
 from lark.exceptions import UnexpectedToken
 
 from ipl2py import parse
 from ipl2py.ipl import SysDef, Type
-from ipl2py.tree import Tree
 
 from .asserts import assert_comments
 
@@ -61,7 +60,9 @@ Int b // b c d
         """,
         include_comments=False,
     )
-    assert_comments(tree)
+    assert hasattr(tree.meta, "header_comments") is False
+    assert hasattr(tree.meta, "inline_comments") is False
+    assert hasattr(tree.meta, "footer_comments") is False
 
 
 def test_assign_comments_in_if_statement():

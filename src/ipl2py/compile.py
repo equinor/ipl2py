@@ -1,8 +1,9 @@
 import logging
 
-from .parse import parse
+from lark import Tree
+
+from .parsing import parse
 from .symbols import create_symbol_table
-from .tree import Tree
 
 logger = logging.getLogger(__name__)
 

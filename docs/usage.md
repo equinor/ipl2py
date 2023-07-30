@@ -6,10 +6,10 @@ ipl2py works on individual files. To compile `script.ipl` to Python simply
 ipl2py script.ipl  # creates script.ipl.py
 ```
 
-You can specify and output file as well.
+You can specify an output file as well.
 
 ```shell
-ipl2py script.ipl -o script.py # creates script.py
+ipl2py script.ipl -o script.py
 ```
 
 By default comments are preserved. They can be discarded by passing the

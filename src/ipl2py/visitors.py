@@ -2,10 +2,8 @@ import logging
 from typing import List, Mapping, Tuple, Union
 
 import lark
-from lark import Token
+from lark import Token, Tree
 from lark.visitors import Visitor_Recursive
-
-from .tree import Tree
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +37,11 @@ class CommentVisitor(Visitor_Recursive):
 
         self._compound_end_line = 0
         self._is_if_else = False
+
+    def _add_comments_attrs(self, node: Tree):
+        setattr(node.meta, "header_comments", [])
+        setattr(node.meta, "inline_comments", [])
+        setattr(node.meta, "footer_comments", [])
 
     def _map_line_to_comment(self, comments: List[Token]) -> Mapping[int, Token]:
         """Map each comment to a line number in the original source"""
@@ -102,6 +105,8 @@ class CommentVisitor(Visitor_Recursive):
         self._prev_end_line = end_line + 1
 
     def start(self, node: Tree) -> None:
+        self._add_comments_attrs(node)
+
         last_comment_end_line = 1
         if len(self._mapped_comments) > 0:
             last_comment_end_line = list(self._mapped_comments)[-1]
@@ -127,7 +132,7 @@ class CommentVisitor(Visitor_Recursive):
         self._assign_comments_to(node, self.HEADER_COMMENTS, self._prev_end_line, line)
         # The last child could be a token so we need some special handling.
         # Note that tokens do not have a meta attribute so it will be grouped
-        # into the footer.
+        # into the start footer.
         _, last_child_end_line = self._get_node_bounds(node.children[-1])
         if last_child_end_line == self.INVALID:
             logger.warning(
@@ -142,13 +147,15 @@ class CommentVisitor(Visitor_Recursive):
         self._set_prev_end_line(end_line)
 
     def suite(self, node: Tree) -> None:
+        self._add_comments_attrs(node)
+
         line, suite_end_line = self._get_node_bounds(node)
         end_line = self._compound_end_line
         _, last_child_end_line = self._get_node_bounds(node.children[-1])
 
         if self._is_if_else:
             # IF-ELSE has two suites so we bound this (the first IF suite) to
-            # its natural termination rather than the parent's.
+            # its natural termination rather than the if_stmt's end_line.
             end_line = suite_end_line - 1
             self._is_if_else = False
 
@@ -159,6 +166,8 @@ class CommentVisitor(Visitor_Recursive):
         self._set_prev_end_line(end_line)
 
     def __default__(self, node: Tree) -> None:
+        self._add_comments_attrs(node)
+
         line, end_line = self._get_node_bounds(node)
         self._assign_comments_to(node, self.HEADER_COMMENTS, self._prev_end_line, line)
 
@@ -176,7 +185,7 @@ class CommentVisitor(Visitor_Recursive):
             "func_def",
         ):
             self._compound_end_line = end_line
-            # If we have an IF-ELSE statement we must adjust suite boundaries
+            # Flag that we have two suites to work with
             if node.data == "if_stmt" and node.children[-1] is not None:
                 self._is_if_else = True
 
