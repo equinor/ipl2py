@@ -3,7 +3,7 @@ import logging
 from lark import Tree
 
 from .parsing import parse
-from .symbols import create_symbol_table
+from .symtable import create_symbol_table
 
 logger = logging.getLogger(__name__)
 

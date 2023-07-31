@@ -25,7 +25,7 @@ class Type(str, Enum):
     FACIES_MODEL = "FaciesModel"
 
 
-class Const(str, Enum):
+class Constant(str, Enum):
     E = "E"
     PI = "PI"
     DEG = "DEG"
