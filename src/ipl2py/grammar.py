@@ -60,14 +60,14 @@ subscript_list: (expr_stmt ",")~0..2 expr_stmt
 ?factor: molecule
      | "+" factor   -> uadd
      | "-" factor   -> usub
-     | "NOT" factor -> not
+     | "NOT" factor -> unot
 ?molecule: NAME "(" [arg_list] ")"     -> call
      | molecule "[" subscript_list "]" -> subscript
      | molecule "." NAME               -> attribute
      | atom
 ?atom: BOOL | INT | FLOAT | STRING | SYSDEF | NAME
      | "(" expr_stmt ("," expr_stmt)~1..2")" -> point
-     | "(" expr_stmt ")"
+     | "(" test ")"
 
 // .1 for priority over NAME
 SYSDEF.1: "@" ({"|".join([sd for sd in _sysdefs])})

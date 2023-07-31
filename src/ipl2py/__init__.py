@@ -1,6 +1,6 @@
 from importlib.metadata import PackageNotFoundError, version
 
-from .compile import compile
+from .compiling import compile
 from .parsing import parse
 
 try:

@@ -222,7 +222,7 @@ def test_simple_logical_operators(
     subtree = next(tree_iter)
     # Iterates from deepest leaf up and NOT op puts this statement deepest
     if neg:
-        assert_tree(subtree, "not", 1)
+        assert_tree(subtree, "unot", 1)
         assert subtree.children[0] == rclass
         subtree = next(tree_iter)
     assert_tree(subtree, "halt_stmt", 0)
@@ -230,7 +230,7 @@ def test_simple_logical_operators(
     assert_tree(subtree, op_alias, 2)
     assert subtree.children[0] == lclass
     if neg:
-        assert_tree(subtree.children[1], "not", 1)
+        assert_tree(subtree.children[1], "unot", 1)
     else:
         assert subtree.children[1] == rclass
     subtree = next(tree_iter)

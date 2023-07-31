@@ -2,5 +2,5 @@ class CompilationError(Exception):
     pass
 
 
-class SymbolCollision(Exception):
+class SymbolCollisionError(Exception):
     pass
