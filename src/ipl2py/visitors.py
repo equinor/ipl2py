@@ -7,13 +7,15 @@ from lark.visitors import Visitor_Recursive
 
 from .exceptions import CompilationError
 from .ipl import Type
-from .symtable import FunctionSymbol, ProcedureSymbol, Symbol, SymbolTable
+from .symtable import (
+    FunctionSymbolTable,
+    ProcedureSymbolTable,
+    Symbol,
+    SymbolTable,
+    SymbolTableNode,
+)
 
 logger = logging.getLogger(__name__)
-
-
-SymbolTableNode = Union[SymbolTable, ProcedureSymbol, FunctionSymbol]
-ScopeStack = List[SymbolTableNode]
 
 
 class CommentVisitor(Visitor_Recursive):
@@ -203,6 +205,9 @@ class CommentVisitor(Visitor_Recursive):
         self._set_prev_end_line(end_line)
 
 
+ScopeStack = List[SymbolTableNode]
+
+
 class SymbolTableVisitor(Visitor_Recursive):
     """This visitor generates a symbol table from the top down. This is done
     before the first-pass AST is constructed because IPL requires top declarations
@@ -233,14 +238,12 @@ class SymbolTableVisitor(Visitor_Recursive):
         return getattr(self, f"{tree.data}_exit", self.__default_exit__)(tree)
 
     def visit_topdown(self, tree: Tree) -> Tree:
-        """Overrides the default top_down visitor function to add an additional
+        """Overrides the default visit_topdown visitor function to add an additional
         exit call after all child trees have been visited."""
-        self._call_userfunc(tree)
-
+        self._call_userfunc(tree)  # Inherited from derived class
         for child in tree.children:
             if isinstance(child, Tree):
                 self.visit_topdown(child)
-
         self._call_exit_userfunc(tree)
         return tree
 
@@ -281,9 +284,9 @@ class SymbolTableVisitor(Visitor_Recursive):
             is_assigned=is_assigned,
             is_parameter=is_parameter,
         )
-        self.get_scope().add_symbol(symbol)
+        self.get_scope().insert_symbol(symbol)
 
-    def _update_referenced_symbols(self, node: Tree) -> None:
+    def _update_referenced_identifiers(self, node: Tree) -> None:
         # At this point all variables should be declared so we can
         # raise exceptions for undeclared identifiers.
         for child in node.children:
@@ -298,38 +301,37 @@ class SymbolTableVisitor(Visitor_Recursive):
     def func_def(self, node: Tree) -> None:
         type = node.children[0].value  # type: ignore
         identifier = node.children[1].value  # type: ignore
-        top = self.get_global()
-        function = FunctionSymbol(identifier, top, type)
-        top.add_child(function)
-        self._scope_stack.append(function)
+        root_table = self.get_global()
+        function = FunctionSymbolTable(identifier, root_table, type)
+        root_table.insert_child(function)
+        self.push_scope(function)
 
     def func_def_exit(self, node: Tree) -> None:
         self.pop_scope()
 
     def proc_def(self, node: Tree) -> None:
         identifier = node.children[0].value  # type: ignore
-        top = self.get_global()
-        procedure = ProcedureSymbol(identifier, top)
-        top.add_child(procedure)
-        self._scope_stack.append(procedure)
+        root_table = self.get_global()
+        procedure = ProcedureSymbolTable(identifier, root_table)
+        root_table.insert_child(procedure)
+        self.push_scope(procedure)
 
     def proc_def_exit(self, node: Tree) -> None:
         self.pop_scope()
 
     def param(self, node: Tree) -> None:
         type = node.children[0].value  # type: ignore
-        self._handle_decl(
-            node.children[1], type, is_parameter=True, force_unassigned=True
-        )
+        self._handle_decl(node.children[1], type, is_parameter=True)
 
-    def _handle_decl(
-        self, node: Tree, type_: Type, is_parameter=False, force_unassigned=False
-    ) -> None:
+    def _handle_decl(self, node: Tree, type_: Type, is_parameter=False) -> None:
         if node.data == "decl_assign":
+            # IPL allows assignment syntax in function parameter declarations
+            # but does not assign them. An unlikely edge being case with
+            # is_assigned
             self._create_symbol(
                 node.children[0],  # type: ignore
                 type_,
-                is_assigned=False if force_unassigned else True,
+                is_assigned=False if is_parameter else True,
                 is_parameter=is_parameter,
             )
             return
@@ -394,61 +396,61 @@ class SymbolTableVisitor(Visitor_Recursive):
 
     # Prefer to allow list rather than use __default__
     def while_stmt(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def if_stmt(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def return_stmt(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def and_test(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def or_test(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def arg_list(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def subscript_list(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def lt(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def lte(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def gt(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def gte(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def eq(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def noteq(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def add(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def sub(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def mult(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def div(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def uadd(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def usub(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
 
     def unot(self, node: Tree) -> None:
-        self._update_referenced_symbols(node)
+        self._update_referenced_identifiers(node)
