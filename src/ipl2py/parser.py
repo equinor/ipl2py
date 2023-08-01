@@ -38,7 +38,6 @@ def _parse(content: str, include_comments: bool) -> Tree:
     parser = Lark(
         GRAMMAR,
         parser="lalr",
-        tree_class=Tree,
         propagate_positions=True,
         lexer_callbacks=callbacks,
     )

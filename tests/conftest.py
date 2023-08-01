@@ -2,8 +2,8 @@ import pytest
 from lark import Lark
 
 from ipl2py import parse
+from ipl2py.compiler import create_symbol_table
 from ipl2py.grammar import GRAMMAR
-from ipl2py.symtable import create_symbol_table
 
 # Gives assert introspection to helper functions
 pytest.register_assert_rewrite("tests.asserts")

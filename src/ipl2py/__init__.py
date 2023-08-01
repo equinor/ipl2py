@@ -1,7 +1,7 @@
 from importlib.metadata import PackageNotFoundError, version
 
-from .compiling import compile
-from .parsing import parse
+from .compiler import compile
+from .parser import parse
 
 try:
     _version = version(__name__)

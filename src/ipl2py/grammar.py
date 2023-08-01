@@ -30,7 +30,7 @@ for_stmt: "FOR" NAME "FROM" expr_stmt ("DOWNTO"|"TO") expr_stmt "DO" suite "ENDF
 while_stmt: "WHILE" test "DO" suite "ENDWHILE"
 if_stmt: "IF" test "THEN" suite ["ELSE" suite] "ENDIF"
 halt_stmt: "HALT"
-return_stmt: "RETURN" "(" expr_stmt ")"
+return_stmt: "RETURN" "(" test ")"
 
 suite: (small_stmt | stmt)+
 
@@ -38,9 +38,8 @@ suite: (small_stmt | stmt)+
 ?or_test: and_test ("OR" and_test)*
 ?and_test: compare ("AND" compare)*
 
-arg_list: (argument ",")* argument
-?argument: expr_stmt | expr_stmt "=" expr_stmt
-subscript_list: (expr_stmt ",")~0..2 expr_stmt
+arg_list: (test ",")* test
+subscript_list: (test ",")~0..2 test
 
 ?expr_stmt: molecule "=" test -> assign
      | compare
