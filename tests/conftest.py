@@ -2,7 +2,7 @@ import pytest
 from lark import Lark
 
 from ipl2py import parse
-from ipl2py.compiler import create_symbol_table
+from ipl2py.compiler import create_symtable
 from ipl2py.grammar import GRAMMAR
 
 # Gives assert introspection to helper functions
@@ -34,6 +34,6 @@ def iter_parse_tree(lark_parse):
 def symbol_table():
     def _symbol_table(content: str):
         tree = parse(content)
-        return create_symbol_table(tree)
+        return create_symtable(tree)
 
     return _symbol_table

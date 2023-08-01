@@ -1,4 +1,10 @@
+import re
+
 from lark import Tree
+
+
+def camel_to_snake(identifier: str) -> str:
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", identifier).lower()
 
 
 def get_test_tree() -> str:
