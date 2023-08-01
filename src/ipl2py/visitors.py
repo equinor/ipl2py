@@ -326,7 +326,7 @@ class SymbolTableVisitor(Visitor_Recursive):
     def _handle_decl(self, node: Tree, type_: Type, is_parameter=False) -> None:
         if node.data == "decl_assign":
             # IPL allows assignment syntax in function parameter declarations
-            # but does not assign them. An unlikely edge being case with
+            # but does not assign them. This creates an unlikely edge case with
             # is_assigned
             self._create_symbol(
                 node.children[0],  # type: ignore

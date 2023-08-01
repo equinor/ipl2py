@@ -72,23 +72,23 @@ class SymbolTableBase(ABC):
 
     @abstractmethod
     def lookup(self, name: str) -> Union[None, Symbol]:
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def callable_lookup(self, name: str) -> Union[None, Symbol]:
-        pass
+        raise NotImplementedError()
 
     @property
     @abstractmethod
     def identifiers(self) -> List[str]:
         """Returns a list of all accessible identifiers, including those in
         global scope."""
-        pass
+        raise NotImplementedError()
 
     @property
     @abstractmethod
     def callable_identifiers(self) -> List[str]:
-        pass
+        raise NotImplementedError()
 
 
 class SymbolTable(SymbolTableBase):
