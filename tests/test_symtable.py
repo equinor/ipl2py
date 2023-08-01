@@ -2,7 +2,12 @@ import pytest
 
 from ipl2py.exceptions import CompilationError, SymbolCollisionError
 from ipl2py.ipl import Type
-from ipl2py.symtable import FunctionSymbol, ProcedureSymbol, Symbol, SymbolTableType
+from ipl2py.symtable import (
+    FunctionSymbolTable,
+    ProcedureSymbolTable,
+    Symbol,
+    SymbolTableType,
+)
 
 
 @pytest.mark.parametrize("decl", ["a", "a[]", "a[,]", "a[,,]"])
@@ -235,7 +240,7 @@ ENDFUNCTION
     assert table.callable_lookup("a") == Symbol(
         name="a", type=None, is_global=True, is_callable=True, is_assigned=True
     )
-    assert table.get_child("a") == ProcedureSymbol(name="a", parent=table)
+    assert table.get_child("a") == ProcedureSymbolTable(name="a", parent=table)
 
 
 def test_identifier_scoping_with_single_nested_scope(symbol_table):
@@ -256,9 +261,9 @@ ENDFUNCTION
         name="a", type=None, is_global=True, is_callable=True, is_assigned=True
     )
     procedure = table.get_child("a")
-    expected = ProcedureSymbol(name="a", parent=table)
+    expected = ProcedureSymbolTable(name="a", parent=table)
     inner_a = Symbol(name="a", type=Type.INT, is_global=False, is_assigned=True)
-    expected.add_symbol(inner_a)
+    expected.insert_symbol(inner_a)
     assert procedure == expected
     assert procedure.lookup("a") == inner_a
 
@@ -275,7 +280,7 @@ ENDFUNCTION
     assert table.callable_lookup("a") == Symbol(
         name="a", type=Type.INT, is_global=True, is_callable=True, is_assigned=True
     )
-    assert table.get_child("a") == FunctionSymbol(
+    assert table.get_child("a") == FunctionSymbolTable(
         name="a", parent=table, return_type=Type.INT
     )
 
@@ -293,7 +298,7 @@ ENDFUNCTION
     assert table.callable_lookup("a") == Symbol(
         name="a", type=Type.INT, is_global=True, is_callable=True, is_assigned=True
     )
-    assert table.get_child("a") == FunctionSymbol(
+    assert table.get_child("a") == FunctionSymbolTable(
         name="a", parent=table, return_type=Type.INT
     )
     expected = Symbol(
@@ -452,6 +457,48 @@ ENDFUNCTION
 b()
             """
         )
+
+
+def test_identifiers_in_local_scope_include_global(symbol_table):
+    table = symbol_table(
+        """
+Int a
+FUNCTION a()
+    Int b
+ENDFUNCTION
+        """
+    )
+    assert table.identifiers == ["a"]
+    assert table.get_child("a").identifiers == ["b", "a"]
+    assert table.get_child("a").locals == [Symbol(name="b", type=Type.INT)]
+
+
+def test_recursive_call_marks_self_referenced(symbol_table):
+    table = symbol_table(
+        """
+FUNCTION a()
+a()
+ENDFUNCTION
+        """
+    )
+    assert table.callable_identifiers == ["a"]
+    assert table.callable_lookup("a") == Symbol(
+        name="a",
+        type=None,
+        is_global=True,
+        is_callable=True,
+        is_assigned=True,
+        is_referenced=True,
+    )
+    assert table.get_child("a").callable_identifiers == ["a"]
+    assert table.get_child("a").callable_lookup("a") == Symbol(
+        name="a",
+        type=None,
+        is_global=True,
+        is_callable=True,
+        is_assigned=True,
+        is_referenced=True,
+    )
 
 
 def test_identifiers_in_call_arguments_set_as_referenced(symbol_table):

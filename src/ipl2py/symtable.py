@@ -9,6 +9,9 @@ from .ipl import Type
 
 logger = logging.getLogger(__name__)
 
+ChildSymbolTable = Union["ProcedureSymbolTable", "FunctionSymbolTable"]
+SymbolTableNode = Union["SymbolTable", ChildSymbolTable]
+
 
 class SymbolTableType(Enum):
     MODULE = auto()
@@ -21,10 +24,11 @@ class Symbol:
     """A symbol used in a module.
 
     If a variable is used in a code block but not defined there,
-    it will be marked as is_free."""
+    it will be marked as is_free. If a symbol identifies a function
+    or procedure it is callable."""
 
     name: str
-    type: Union[None, Type]
+    type: Union[None, Type]  # None exception for procedure callable type
     is_referenced: bool = False
     is_parameter: bool = False
     is_global: bool = False
@@ -47,7 +51,7 @@ class SymbolTableBase(ABC):
         self.symbols: Dict[str, Symbol] = {}
         self.callables: Dict[str, Symbol] = {}
 
-    def add_symbol(self, symbol: Symbol) -> None:
+    def insert_symbol(self, symbol: Symbol) -> None:
         if symbol.name in self.symbols:
             raise SymbolCollisionError(
                 f"Symbol {symbol.name} already declared in table {self.name}"
@@ -56,7 +60,7 @@ class SymbolTableBase(ABC):
             symbol.is_global = True
         self.symbols[symbol.name] = symbol
 
-    def add_callable(self, symbol: Symbol) -> None:
+    def insert_callable(self, symbol: Symbol) -> None:
         if symbol.name in self.callables:
             raise SymbolCollisionError(
                 f"Symbol {symbol.name} already declared in table {self.name}"
@@ -87,19 +91,79 @@ class SymbolTableBase(ABC):
         pass
 
 
-class ProcedureSymbol(SymbolTableBase):
-    def __init__(self, name: str, parent: "SymbolTable") -> None:
+class SymbolTable(SymbolTableBase):
+    def __init__(self, name: str, type: SymbolTableType) -> None:
+        super().__init__(name, type)
+        self.children: Dict[str, ChildSymbolTable] = {}
+
+    def lookup(self, name: str) -> Union[None, Symbol]:
+        symbol = self.symbols.get(name)
+        if not symbol:
+            return None
+        # This could have been set true from some nested scope should
+        # always be false here.
+        symbol.is_free = False
+        return symbol
+
+    def callable_lookup(self, name: str) -> Union[None, Symbol]:
+        return self.callables.get(name)
+
+    @property
+    def identifiers(self) -> List[str]:
+        return list(self.symbols.keys())
+
+    @property
+    def callable_identifiers(self) -> List[str]:
+        return list(self.callables.keys())
+
+    def insert_child(self, child: ChildSymbolTable) -> None:
+        """A child can only be a procedure/function"""
+        if child.name in self.children:
+            raise SymbolCollisionError(
+                f"Symbol table {child.name} already declared in table {self.name}"
+            )
+        type = None
+        if isinstance(child, FunctionSymbolTable):
+            type = child.return_type
+        symbol = Symbol(name=child.name, type=type)
+        self.insert_callable(symbol)
+        self.children[child.name] = child
+
+    def get_child(self, name: str) -> Union[None, ChildSymbolTable]:
+        return self.children.get(name)
+
+    @property
+    def has_children(self) -> bool:
+        return len(self.children) > 0
+
+    def __repr__(self) -> str:
+        return (
+            "SymbolTable("
+            f"name={self.name}, "
+            f"type={self.type}, "
+            f"is_optimized={self.is_optimized}, "
+            f"identifiers={self.identifiers}, "
+            f"callable_identifiers={self.callable_identifiers}, "
+            f"symbols={self.symbols}, "
+            f"children={self.children})"
+        )
+
+    def __eq__(self, other) -> bool:
+        return (
+            self.name == other.name
+            and self.type == other.type
+            and self.is_optimized == other.is_optimized
+            and self.symbols == other.symbols
+            and self.callables == other.callables
+            and self.children == other.children
+        )
+
+
+class ProcedureSymbolTable(SymbolTableBase):
+    def __init__(self, name: str, parent: SymbolTable) -> None:
         super().__init__(name, SymbolTableType.PROCEDURE)
         self.parent = parent
         self.is_called = False
-
-    def add_param(self, symbol: Symbol) -> None:
-        if symbol.name in self.symbols:
-            raise SymbolCollisionError(
-                f"Symbol {symbol.name} already declared in table {self.name}"
-            )
-        symbol.is_parameter = True
-        self.symbols[symbol.name] = symbol
 
     def lookup(self, name: str) -> Union[None, Symbol]:
         symbol = self.symbols.get(name)
@@ -152,13 +216,8 @@ class ProcedureSymbol(SymbolTableBase):
         )
 
 
-class FunctionSymbol(ProcedureSymbol):
-    def __init__(
-        self,
-        name: str,
-        parent: "SymbolTable",
-        return_type: Type,
-    ) -> None:
+class FunctionSymbolTable(ProcedureSymbolTable):
+    def __init__(self, name: str, parent: SymbolTable, return_type: Type) -> None:
         super().__init__(name, parent)
         self.type = SymbolTableType.FUNCTION
         self.return_type = return_type
@@ -183,72 +242,4 @@ class FunctionSymbol(ProcedureSymbol):
             and self.is_optimized == other.is_optimized
             and self.symbols == other.symbols
             and self.return_type == other.return_type
-        )
-
-
-class SymbolTable(SymbolTableBase):
-    def __init__(self, name: str, type: SymbolTableType) -> None:
-        super().__init__(name, type)
-        self.children: Dict[str, Union[ProcedureSymbol, FunctionSymbol]] = {}
-
-    def lookup(self, name: str) -> Union[None, Symbol]:
-        symbol = self.symbols.get(name)
-        if not symbol:
-            return None
-        # This could have been set true from some nested scope should
-        # always be false here.
-        symbol.is_free = False
-        return symbol
-
-    def callable_lookup(self, name: str) -> Union[None, Symbol]:
-        return self.callables.get(name)
-
-    @property
-    def identifiers(self) -> List[str]:
-        return list(self.symbols.keys())
-
-    @property
-    def callable_identifiers(self) -> List[str]:
-        return list(self.callables.keys())
-
-    def add_child(self, symtable: Union[ProcedureSymbol, FunctionSymbol]) -> None:
-        """A child can only be a procedure/function"""
-        if symtable.name in self.children:
-            raise SymbolCollisionError(
-                f"Symbol table {symtable.name} already declared in table {self.name}"
-            )
-        type = None
-        if isinstance(symtable, FunctionSymbol):
-            type = symtable.return_type
-        symbol = Symbol(name=symtable.name, type=type)
-        self.add_callable(symbol)
-        self.children[symtable.name] = symtable
-
-    def get_child(self, name: str) -> Union[None, SymbolTableBase]:
-        return self.children.get(name)
-
-    @property
-    def has_children(self) -> bool:
-        return len(self.children) > 0
-
-    def __repr__(self) -> str:
-        return (
-            "SymbolTable("
-            f"name={self.name}, "
-            f"type={self.type}, "
-            f"is_optimized={self.is_optimized}, "
-            f"identifiers={self.identifiers}, "
-            f"callable_identifiers={self.callable_identifiers}, "
-            f"symbols={self.symbols}, "
-            f"children={self.children})"
-        )
-
-    def __eq__(self, other) -> bool:
-        return (
-            self.name == other.name
-            and self.type == other.type
-            and self.is_optimized == other.is_optimized
-            and self.symbols == other.symbols
-            and self.callables == other.callables
-            and self.children == other.children
         )
