@@ -4,13 +4,14 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Dict, List, Union
 
-from .exceptions import SymbolCollisionError
+from .exceptions import CompilationError, SymbolCollisionError
 from .ipl import Type
 
 logger = logging.getLogger(__name__)
 
 ChildSymbolTable = Union["ProcedureSymbolTable", "FunctionSymbolTable"]
 SymbolTableNode = Union["SymbolTable", ChildSymbolTable]
+ScopeStack = List[SymbolTableNode]
 
 
 class SymbolTableType(Enum):
@@ -243,3 +244,33 @@ class FunctionSymbolTable(ProcedureSymbolTable):
             and self.symbols == other.symbols
             and self.return_type == other.return_type
         )
+
+
+class ScopeStackBase(ABC):
+    def __init__(self, base: SymbolTable) -> None:
+        self._base = base
+        self._scope_stack: ScopeStack = [base]
+
+    def get_global(self) -> SymbolTable:
+        return self._base
+
+    def get_scope(self) -> SymbolTableNode:
+        return self._scope_stack[-1]
+
+    def push_scope(self, node: SymbolTableNode) -> ScopeStack:
+        self._scope_stack.append(node)
+        return self._scope_stack
+
+    def pop_scope(self) -> Union[None, SymbolTableNode]:
+        # Don't pop global state
+        if len(self._scope_stack) == 1:
+            return None
+        table = self._scope_stack[-1]
+        self._scope_stack = self._scope_stack[:-1]
+        return table
+
+    def lookup(self, name: str) -> Symbol:
+        symbol = self.get_scope().lookup(name)
+        if not symbol:
+            raise CompilationError()
+        return symbol

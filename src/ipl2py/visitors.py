@@ -10,6 +10,7 @@ from .ipl import Type
 from .symtable import (
     FunctionSymbolTable,
     ProcedureSymbolTable,
+    ScopeStackBase,
     Symbol,
     SymbolTable,
     SymbolTableNode,
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 ScopeStack = List[SymbolTableNode]
 
 
-class StatefulVisitorBase(Visitor_Recursive):
+class StatefulVisitorBase(ScopeStackBase, Visitor_Recursive):
     """This visitor receives a SymbolTable as its base and is capable
     of keeping track of scope state. It does this by pushing scopes
     onto the scope stack whenever a new scope (function or procedure)
@@ -28,9 +29,7 @@ class StatefulVisitorBase(Visitor_Recursive):
     meant to be derived from."""
 
     def __init__(self, base: SymbolTable) -> None:
-        super().__init__()
-        self._base = base
-        self._scope_stack: ScopeStack = [base]
+        super().__init__(base)
 
     def __default_exit__(self, tree: Tree) -> Tree:
         return tree
@@ -47,24 +46,6 @@ class StatefulVisitorBase(Visitor_Recursive):
                 self.visit_topdown(child)
         self._call_exit_userfunc(tree)
         return tree
-
-    def get_global(self) -> SymbolTable:
-        return self._base
-
-    def get_scope(self) -> SymbolTableNode:
-        return self._scope_stack[-1]
-
-    def push_scope(self, node: SymbolTableNode) -> ScopeStack:
-        self._scope_stack.append(node)
-        return self._scope_stack
-
-    def pop_scope(self) -> Union[None, SymbolTableNode]:
-        # Don't pop global state
-        if len(self._scope_stack) == 1:
-            return None
-        table = self._scope_stack[-1]
-        self._scope_stack = self._scope_stack[:-1]
-        return table
 
 
 class CommentVisitor(Visitor_Recursive):

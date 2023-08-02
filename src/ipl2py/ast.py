@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from typing import List, Union
 
-from lark import Token
-from lark.visitors import Visitor_Recursive
+import numpy as np
 
-from .symtable import SymbolTable
+from .ipl import Type
 
-ExprType = Union["Compare", "Constant", "Name"]
+ArrayType = Union["Array1D", "Array2D", "Array3D"]
+ExprType = Union["Compare", ArrayType, "Constant", "Name"]
+Statement = Union["Assign"]
 
 
 @dataclass
@@ -30,11 +31,27 @@ class _Base:
 @dataclass
 class Name:
     id: str
+    type: Union[None, Type]
 
 
 @dataclass
 class Constant:
-    value: Union[bool, int, float, str]
+    value: Union[bool, int, float, str, None]
+
+
+@dataclass
+class Array1D:
+    value: np.ndarray
+
+
+@dataclass
+class Array2D:
+    value: np.ndarray
+
+
+@dataclass
+class Array3D:
+    value: np.ndarray
 
 
 @dataclass
@@ -43,14 +60,16 @@ class Lt:
     right: ExprType
 
 
+@dataclass
 class Compare:
     op: Union[Lt]
     left: ExprType
     right: ExprType
 
 
+@dataclass
 class Expr(_Base):
-    value: Union[Compare, Compare, Constant, Name]
+    value: ExprType
 
 
 @dataclass
@@ -59,36 +78,6 @@ class Assign(_Base):
     value: ExprType
 
 
-class AstVisitor(Visitor_Recursive):
-    def __init__(self, symtable: SymbolTable) -> None:
-        super().__init__()
-        self.symtable = symtable
-
-    def _meta(self, meta: Meta) -> Meta:
-        """Ensure the opaque Lark Meta type isn't used."""
-        return Meta(
-            line=meta.line,
-            column=meta.column,
-            start_pos=meta.start_pos,
-            end_line=meta.end_line,
-            end_column=meta.end_line,
-            end_pos=meta.end_pos,
-            header_comments=meta.header_comments,
-            inline_comments=meta.inline_comments,
-            footer_comments=meta.footer_comments,
-        )
-
-    def STRING(self, token: Token) -> Constant:
-        return Constant(value=token.value)
-
-    def FLOAT(self, token: Token) -> Constant:
-        return Constant(value=token.value)
-
-    def INT(self, token: Token) -> Constant:
-        return Constant(value=token.value)
-
-    def BOOL(self, token: Token) -> Constant:
-        return Constant(value=token.value)
-
-    def NAME(self, token: Token) -> Name:
-        return Name(id=token.value)
+@dataclass
+class Module(_Base):
+    body: List[Statement]
