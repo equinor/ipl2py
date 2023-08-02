@@ -473,6 +473,21 @@ ENDFUNCTION
     assert table.get_child("a").locals == [Symbol(name="b", type=Type.INT)]
 
 
+def test_loop_variant_in_for_loop_marked_referenced_and_assigned(symbol_table):
+    table = symbol_table(
+        """
+Int a
+FOR a FROM 1 TO 2 DO
+    HALT
+ENDFOR
+        """
+    )
+    assert table.identifiers == ["a"]
+    assert table.lookup("a") == Symbol(
+        name="a", type=Type.INT, is_global=True, is_referenced=True, is_assigned=True
+    )
+
+
 def test_recursive_call_marks_self_referenced(symbol_table):
     table = symbol_table(
         """

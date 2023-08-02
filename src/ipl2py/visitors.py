@@ -17,6 +17,55 @@ from .symtable import (
 
 logger = logging.getLogger(__name__)
 
+ScopeStack = List[SymbolTableNode]
+
+
+class StatefulVisitorBase(Visitor_Recursive):
+    """This visitor receives a SymbolTable as its base and is capable
+    of keeping track of scope state. It does this by pushing scopes
+    onto the scope stack whenever a new scope (function or procedure)
+    is entered. It also implements exit functions for rules. It is
+    meant to be derived from."""
+
+    def __init__(self, base: SymbolTable) -> None:
+        super().__init__()
+        self._base = base
+        self._scope_stack: ScopeStack = [base]
+
+    def __default_exit__(self, tree: Tree) -> Tree:
+        return tree
+
+    def _call_exit_userfunc(self, tree: Tree) -> Tree:
+        return getattr(self, f"{tree.data}_exit", self.__default_exit__)(tree)
+
+    def visit_topdown(self, tree: Tree) -> Tree:
+        """Overrides the default visit_topdown visitor function to add an additional
+        exit call after all child trees have been visited."""
+        self._call_userfunc(tree)  # Inherited from derived class
+        for child in tree.children:
+            if isinstance(child, Tree):
+                self.visit_topdown(child)
+        self._call_exit_userfunc(tree)
+        return tree
+
+    def get_global(self) -> SymbolTable:
+        return self._base
+
+    def get_scope(self) -> SymbolTableNode:
+        return self._scope_stack[-1]
+
+    def push_scope(self, node: SymbolTableNode) -> ScopeStack:
+        self._scope_stack.append(node)
+        return self._scope_stack
+
+    def pop_scope(self) -> Union[None, SymbolTableNode]:
+        # Don't pop global state
+        if len(self._scope_stack) == 1:
+            return None
+        table = self._scope_stack[-1]
+        self._scope_stack = self._scope_stack[:-1]
+        return table
+
 
 class CommentVisitor(Visitor_Recursive):
     """This visitor recursively visits each branch and looks for comments that
@@ -205,10 +254,7 @@ class CommentVisitor(Visitor_Recursive):
         self._set_prev_end_line(end_line)
 
 
-ScopeStack = List[SymbolTableNode]
-
-
-class SymbolTableVisitor(Visitor_Recursive):
+class SymbolTableVisitor(StatefulVisitorBase):
     """This visitor generates a symbol table from the top down. This is done
     before the first-pass AST is constructed because IPL requires top declarations
     before any statements can operate on them. Converting that directly to an AST
@@ -226,44 +272,8 @@ class SymbolTableVisitor(Visitor_Recursive):
 
     decl_types = ("decl", "decl_1d", "decl_2d", "decl_3d", "decl_assign")
 
-    def __init__(self, root: SymbolTable) -> None:
-        super().__init__()
-        self._root = root
-        self._scope_stack: ScopeStack = [root]
-
-    def __default_exit__(self, tree: Tree) -> Tree:
-        return tree
-
-    def _call_exit_userfunc(self, tree: Tree) -> Tree:
-        return getattr(self, f"{tree.data}_exit", self.__default_exit__)(tree)
-
-    def visit_topdown(self, tree: Tree) -> Tree:
-        """Overrides the default visit_topdown visitor function to add an additional
-        exit call after all child trees have been visited."""
-        self._call_userfunc(tree)  # Inherited from derived class
-        for child in tree.children:
-            if isinstance(child, Tree):
-                self.visit_topdown(child)
-        self._call_exit_userfunc(tree)
-        return tree
-
-    def get_global(self) -> SymbolTable:
-        return self._root
-
-    def get_scope(self) -> SymbolTableNode:
-        assert len(self._scope_stack) > 0
-        return self._scope_stack[-1]
-
-    def push_scope(self, node: SymbolTableNode) -> ScopeStack:
-        self._scope_stack.append(node)
-        return self._scope_stack
-
-    def pop_scope(self) -> Union[None, SymbolTableNode]:
-        if len(self._scope_stack) == 0:
-            return None
-        node = self._scope_stack[-1]
-        self._scope_stack = self._scope_stack[:-1]
-        return node
+    def __init__(self, base: SymbolTable) -> None:
+        super().__init__(base)
 
     def _get_lhs_name(self, node: Tree) -> Token:
         """Recursively find the name of the variable being subscripted or
@@ -395,6 +405,16 @@ class SymbolTableVisitor(Visitor_Recursive):
         called_symbol.is_referenced = True
 
     # Prefer to allow list rather than use __default__
+    def for_stmt(self, node: Tree) -> None:
+        loop_variant = node.children[0].value  # type: ignore
+        symbol = self.get_scope().lookup(loop_variant)
+        if not symbol:
+            raise CompilationError(
+                f"Assignment to undeclared identifier {loop_variant}"
+            )
+        symbol.is_assigned = True
+        self._update_referenced_identifiers(node)
+
     def while_stmt(self, node: Tree) -> None:
         self._update_referenced_identifiers(node)
 
