@@ -49,8 +49,7 @@ def _parse(content: str, include_comments: bool) -> Tree:
         logger.exception("Failed to parse IPL")
         raise
 
-    if comments:
-        CommentVisitor(comments).visit_topdown(tree)
+    CommentVisitor(comments).visit_topdown(tree)
     return tree
 
 

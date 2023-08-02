@@ -60,9 +60,9 @@ Int b // b c d
         """,
         include_comments=False,
     )
-    assert hasattr(tree.meta, "header_comments") is False
-    assert hasattr(tree.meta, "inline_comments") is False
-    assert hasattr(tree.meta, "footer_comments") is False
+    assert tree.meta.header_comments == []
+    assert tree.meta.inline_comments == []
+    assert tree.meta.footer_comments == []
 
 
 def test_assign_comments_in_if_statement():
