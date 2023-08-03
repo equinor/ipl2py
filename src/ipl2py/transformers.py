@@ -4,6 +4,7 @@ from typing import Any, Dict, Generic, List, TypeVar, Union
 
 import numpy as np
 from lark import Discard, Token, Tree
+from lark.visitors import _DiscardType
 
 import ipl2py.ast as ast
 import ipl2py.ipl as ipl
@@ -170,6 +171,22 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         name, value, *_ = children
         return ast.Assign(targets=[name], value=value, meta=meta)
 
+    def div(self, meta: ast.Meta, children) -> ast.BinOp:
+        lhs, rhs = children
+        return ast.BinOp(lhs=lhs, op=ast.Div(), rhs=rhs, meta=meta)
+
+    def mult(self, meta: ast.Meta, children) -> ast.BinOp:
+        lhs, rhs = children
+        return ast.BinOp(lhs=lhs, op=ast.Mult(), rhs=rhs, meta=meta)
+
+    def sub(self, meta: ast.Meta, children) -> ast.BinOp:
+        lhs, rhs = children
+        return ast.BinOp(lhs=lhs, op=ast.Sub(), rhs=rhs, meta=meta)
+
+    def add(self, meta: ast.Meta, children) -> ast.BinOp:
+        lhs, rhs = children
+        return ast.BinOp(lhs=lhs, op=ast.Add(), rhs=rhs, meta=meta)
+
     def attribute_exit(self, tree: Tree, attribute: ast.Attribute) -> ast.Attribute:
         ctx = self.pop_context()
         if ctx != Context.Attribute:
@@ -232,7 +249,7 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         self.push_context(Context.Subscript)
         return tree
 
-    def TYPE(self, token: Token):
+    def TYPE(self, token: Token) -> _DiscardType:
         return Discard
 
     def SYSDEF(self, token: Token) -> ast.Constant:

@@ -6,7 +6,8 @@ import numpy as np
 import ipl2py.ipl as ipl
 
 ArrayType = Union["Array1D", "Array2D", "Array3D"]
-ExprType = Union["Compare", ArrayType, "Constant", "Name"]
+BinOpsType = Union["Add", "Sub", "Mult", "Div"]
+ExprType = Union[ArrayType, BinOpsType, "Compare", "Constant", "Name"]
 IndexType = Union["Index1D", "Index2D", "Index3D"]
 Statement = Union["Assign"]
 
@@ -89,6 +90,33 @@ class Index3D(Index2D):
 class Subscript(_Base):
     value: Name
     index: IndexType
+
+
+@dataclass
+class Add:
+    pass
+
+
+@dataclass
+class Sub:
+    pass
+
+
+@dataclass
+class Mult:
+    pass
+
+
+@dataclass
+class Div:
+    pass
+
+
+@dataclass
+class BinOp(_Base):
+    lhs: ExprType
+    op: BinOpsType
+    rhs: ExprType
 
 
 @dataclass
