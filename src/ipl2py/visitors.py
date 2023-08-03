@@ -13,12 +13,9 @@ from .symtable import (
     ScopeStackBase,
     Symbol,
     SymbolTable,
-    SymbolTableNode,
 )
 
 logger = logging.getLogger(__name__)
-
-ScopeStack = List[SymbolTableNode]
 
 
 class StatefulVisitorBase(ScopeStackBase, Visitor_Recursive):
@@ -286,7 +283,11 @@ class SymbolTableVisitor(StatefulVisitorBase):
             name = child.value
             symbol = self.get_scope().lookup(name)
             if not symbol:
-                raise CompilationError(f"Reference to undeclared identifier {name}")
+                raise CompilationError(
+                    f"Reference to undeclared identifier {name}",
+                    child.line,
+                    child.column,
+                )
             symbol.is_referenced = True
 
     def func_def(self, node: Tree) -> None:
@@ -365,7 +366,11 @@ class SymbolTableVisitor(StatefulVisitorBase):
 
         lhs_symbol = self.get_scope().lookup(lhs_name)
         if not lhs_symbol:
-            raise CompilationError(f"Assignment to undeclared identifier {lhs_name}")
+            raise CompilationError(
+                f"Assignment to undeclared identifier {lhs_name}",
+                node.meta.line,
+                node.meta.column,
+            )
         lhs_symbol.is_assigned = True
 
         # A single assignment e.g. a = b would mark a reference
@@ -374,7 +379,9 @@ class SymbolTableVisitor(StatefulVisitorBase):
             rhs_symbol = self.get_scope().lookup(rhs.value)
             if not rhs_symbol:
                 raise CompilationError(
-                    f"Reference of undeclared identifier {rhs.value}"
+                    f"Reference of undeclared identifier {rhs.value}",
+                    node.meta.line,
+                    node.meta.column,
                 )
             rhs_symbol.is_referenced = True
 
@@ -382,7 +389,11 @@ class SymbolTableVisitor(StatefulVisitorBase):
         name = node.children[0].value  # type: ignore
         called_symbol = self.get_global().callable_lookup(name)
         if not called_symbol:
-            raise CompilationError(f"Called undeclared callable {name}")
+            raise CompilationError(
+                f"Called undeclared callable {name}",
+                node.meta.line,
+                node.meta.column,
+            )
         called_symbol.is_referenced = True
 
     # Prefer to allow list rather than use __default__
@@ -391,7 +402,9 @@ class SymbolTableVisitor(StatefulVisitorBase):
         symbol = self.get_scope().lookup(loop_variant)
         if not symbol:
             raise CompilationError(
-                f"Assignment to undeclared identifier {loop_variant}"
+                f"Assignment to undeclared identifier {loop_variant}",
+                node.meta.line,
+                node.meta.column,
             )
         symbol.is_assigned = True
         self._update_referenced_identifiers(node)

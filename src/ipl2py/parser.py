@@ -13,7 +13,12 @@ logger = logging.getLogger(__name__)
 LexerCallback = Callable[[Token], Union[Token, None]]
 
 
-def _parse(content: str, include_comments: bool) -> Tree:
+def parse(content: str, include_comments=True) -> Tree:
+    """Parse IPL code into a parse tree.
+
+    :param content: The IPL source file as a string.
+    :param include_comments: Include comments in the tree.
+    """
     callbacks: Dict[str, LexerCallback] = {
         "BOOL": lambda token: token.update(
             value=False if token.value == "FALSE" else True
@@ -50,14 +55,4 @@ def _parse(content: str, include_comments: bool) -> Tree:
         raise
 
     CommentVisitor(comments).visit_topdown(tree)
-    return tree
-
-
-def parse(content: str, include_comments=True) -> Tree:
-    """Parse IPL code into a parse tree.
-
-    :param content: The IPL source file as a string.
-    :param include_comments: Include comments in the tree.
-    """
-    tree = _parse(content, include_comments)
     return tree

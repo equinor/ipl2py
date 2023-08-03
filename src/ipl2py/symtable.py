@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Dict, List, Union
 
-from .exceptions import CompilationError, SymbolCollisionError
+from .exceptions import SymbolCollisionError
 from .ipl import Type
 
 logger = logging.getLogger(__name__)
@@ -269,8 +269,5 @@ class ScopeStackBase(ABC):
         self._scope_stack = self._scope_stack[:-1]
         return table
 
-    def lookup(self, name: str) -> Symbol:
-        symbol = self.get_scope().lookup(name)
-        if not symbol:
-            raise CompilationError()
-        return symbol
+    def lookup(self, name: str) -> Union[None, Symbol]:
+        return self.get_scope().lookup(name)
