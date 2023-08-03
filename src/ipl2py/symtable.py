@@ -190,11 +190,11 @@ class ProcedureSymbolTable(SymbolTableBase):
 
     @property
     def params(self) -> List[Symbol]:
-        return [param for param in self.symbols.values() if param.is_parameter]
+        return [symbol for symbol in self.symbols.values() if symbol.is_parameter]
 
     @property
     def locals(self) -> List[Symbol]:
-        return [param for param in self.symbols.values() if not param.is_parameter]
+        return [symbol for symbol in self.symbols.values() if not symbol.is_parameter]
 
     def __repr__(self) -> str:
         return (
@@ -246,7 +246,7 @@ class FunctionSymbolTable(ProcedureSymbolTable):
         )
 
 
-class ScopeStackBase(ABC):
+class ScopeStackBase:
     def __init__(self, base: SymbolTable) -> None:
         self._base = base
         self._scope_stack: ScopeStack = [base]

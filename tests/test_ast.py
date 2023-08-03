@@ -261,3 +261,108 @@ a[{index}] = 2
         assert index.j == ast.Constant(value=2)
     if idx_type is ast.Index3D:
         assert index.k == ast.Constant(value=3)
+
+
+def test_global_subscript_on_lhs_and_rgs(to_ast):
+    tree = to_ast(
+        """
+Int a[]
+Int b[]
+a[1] = a[b[2].length]
+        """
+    )
+    assert len(tree.body) == 3
+    for stmt in tree.body:
+        assert isinstance(stmt, ast.Assign)
+
+    lhs_subscript = tree.body[2].targets[0]
+    assert isinstance(lhs_subscript, ast.Subscript)
+    assert lhs_subscript.value == ast.Name(id="a", type=ipl.Type.INT)
+    lhs_index = lhs_subscript.index
+    assert isinstance(lhs_index, ast.Index1D)
+    assert lhs_index.i == ast.Constant(value=1)
+
+    rhs_subscript = tree.body[2].value
+    assert isinstance(rhs_subscript, ast.Subscript)
+    assert rhs_subscript.value == ast.Name(id="a", type=ipl.Type.INT)
+
+    outer_index = rhs_subscript.index
+    assert isinstance(outer_index, ast.Index1D)
+
+    inner_attr = outer_index.i
+    assert isinstance(inner_attr, ast.Attribute)
+    assert inner_attr.attr == "length"
+
+    inner_subscript = inner_attr.value
+    assert isinstance(inner_subscript, ast.Subscript)
+    assert inner_subscript.value == ast.Name(id="b", type=ipl.Type.INT)
+    inner_index = inner_subscript.index
+    assert isinstance(inner_index, ast.Index1D)
+    assert inner_index.i == ast.Constant(value=2)
+
+
+@pytest.mark.parametrize(
+    "op,op_str",
+    [
+        (ast.Add(), "+"),
+        (ast.Sub(), "-"),
+        (ast.Mult(), "*"),
+        (ast.Div(), "/"),
+    ],
+)
+def test_global_simple_binops(to_ast, op, op_str):
+    tree = to_ast(f"Int a = 1 {op_str} 2")
+    binop = tree.body[0].value
+    assert isinstance(binop, ast.BinOp)
+    assert binop.lhs == ast.Constant(value=1)
+    assert binop.op == op
+    assert binop.rhs == ast.Constant(value=2)
+
+
+def test_global_compound_binop_precedence(to_ast):
+    # Should resolve to (1 - 2) + ((3 * 4) / 5)
+    tree = to_ast("Int a = 1 - 2 + 3 * 4 / 5")
+    root_binop = tree.body[0].value
+    assert isinstance(root_binop, ast.BinOp)
+    assert root_binop.op == ast.Add()
+
+    # (1 - 2)
+    lhs_binop = root_binop.lhs
+    assert lhs_binop.lhs == ast.Constant(value=1)
+    assert lhs_binop.op == ast.Sub()
+    assert lhs_binop.rhs == ast.Constant(value=2)
+
+    # ((3 * 4) / 5)
+    rhs_binop = root_binop.rhs
+    assert rhs_binop.op == ast.Div()
+    assert rhs_binop.rhs == ast.Constant(value=5)
+
+    # (3 * 4)
+    inner_binop = rhs_binop.lhs
+    assert inner_binop.lhs == ast.Constant(value=3)
+    assert inner_binop.op == ast.Mult()
+    assert inner_binop.rhs == ast.Constant(value=4)
+
+
+def test_global_compound_binop_precedence_with_parantheses(to_ast):
+    tree = to_ast("Int a = 1 - ((2 + 3) * 4) / 5")
+    root_binop = tree.body[0].value
+    assert isinstance(root_binop, ast.BinOp)
+    assert root_binop.lhs == ast.Constant(value=1)
+    assert root_binop.op == ast.Sub()
+
+    # ((2 + 3) * 4) / 5
+    rhs_binop = root_binop.rhs
+    assert rhs_binop.rhs == ast.Constant(value=5)
+    assert rhs_binop.op == ast.Div()
+
+    # (2 + 3) * 4
+    inner_lhs_binop = rhs_binop.lhs
+    assert inner_lhs_binop.op == ast.Mult()
+    assert inner_lhs_binop.rhs == ast.Constant(value=4)
+
+    # 2 + 3
+    inner_binop = inner_lhs_binop.lhs
+    assert inner_binop.lhs == ast.Constant(value=2)
+    assert inner_binop.op == ast.Add()
+    assert inner_binop.rhs == ast.Constant(value=3)
