@@ -3,10 +3,11 @@ from typing import List, Union
 
 import numpy as np
 
-from .ipl import Type
+import ipl2py.ipl as ipl
 
 ArrayType = Union["Array1D", "Array2D", "Array3D"]
 ExprType = Union["Compare", ArrayType, "Constant", "Name"]
+IndexType = Union["Index1D", "Index2D", "Index3D"]
 Statement = Union["Assign"]
 
 
@@ -22,6 +23,9 @@ class Meta:
     inline_comments: List[str]
     footer_comments: List[str]
 
+    def __repr__(self) -> str:
+        return ""
+
 
 @dataclass
 class _Base:
@@ -29,14 +33,14 @@ class _Base:
 
 
 @dataclass
-class Name:
-    id: str
-    type: Union[None, Type]
+class Constant:
+    value: Union[bool, int, float, str, ipl.Constant, ipl.SysDef, None]
 
 
 @dataclass
-class Constant:
-    value: Union[bool, int, float, str, None]
+class Name:
+    id: str
+    type: Union[None, ipl.Type]
 
 
 @dataclass
@@ -55,6 +59,39 @@ class Array3D:
 
 
 @dataclass
+class Assign(_Base):
+    targets: List[Name]
+    value: ExprType
+
+
+@dataclass
+class Attribute(_Base):
+    value: Union[ArrayType, Name]
+    attr: str
+
+
+@dataclass
+class Index1D(_Base):
+    i: ExprType
+
+
+@dataclass
+class Index2D(Index1D):
+    j: ExprType
+
+
+@dataclass
+class Index3D(Index2D):
+    k: ExprType
+
+
+@dataclass
+class Subscript(_Base):
+    value: Name
+    index: IndexType
+
+
+@dataclass
 class Lt:
     left: Constant
     right: ExprType
@@ -69,12 +106,6 @@ class Compare:
 
 @dataclass
 class Expr(_Base):
-    value: ExprType
-
-
-@dataclass
-class Assign(_Base):
-    targets: List[Name]
     value: ExprType
 
 
