@@ -171,52 +171,57 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         name, value, *_ = children
         return ast.Assign(targets=[name], value=value, meta=meta)
 
-    def unot(self, meta: ast.Meta, children) -> ast.UnaryOp:
-        operand, *_ = children
-        return ast.UnaryOp(op=ast.UNot(), operand=operand, meta=meta)
+    def lt(self, meta: ast.Meta, children) -> ast.Compare:
+        left, right = children
+        return ast.Compare(left=left, op=ast.Lt(), right=right, meta=meta)
 
-    def usub(self, meta: ast.Meta, children) -> ast.UnaryOp:
-        operand, *_ = children
-        return ast.UnaryOp(op=ast.USub(), operand=operand, meta=meta)
+    def lte(self, meta: ast.Meta, children) -> ast.Compare:
+        left, right = children
+        return ast.Compare(left=left, op=ast.LtE(), right=right, meta=meta)
 
-    def uadd(self, meta: ast.Meta, children) -> ast.UnaryOp:
-        operand, *_ = children
-        return ast.UnaryOp(op=ast.UAdd(), operand=operand, meta=meta)
+    def gt(self, meta: ast.Meta, children) -> ast.Compare:
+        left, right = children
+        return ast.Compare(left=left, op=ast.Gt(), right=right, meta=meta)
 
-    def div(self, meta: ast.Meta, children) -> ast.BinOp:
-        lhs, rhs = children
-        return ast.BinOp(lhs=lhs, op=ast.Div(), rhs=rhs, meta=meta)
+    def gte(self, meta: ast.Meta, children) -> ast.Compare:
+        left, right = children
+        return ast.Compare(left=left, op=ast.GtE(), right=right, meta=meta)
 
-    def mult(self, meta: ast.Meta, children) -> ast.BinOp:
-        lhs, rhs = children
-        return ast.BinOp(lhs=lhs, op=ast.Mult(), rhs=rhs, meta=meta)
+    def eq(self, meta: ast.Meta, children) -> ast.Compare:
+        left, right = children
+        return ast.Compare(left=left, op=ast.Eq(), right=right, meta=meta)
 
-    def sub(self, meta: ast.Meta, children) -> ast.BinOp:
-        lhs, rhs = children
-        return ast.BinOp(lhs=lhs, op=ast.Sub(), rhs=rhs, meta=meta)
+    def noteq(self, meta: ast.Meta, children) -> ast.Compare:
+        left, right = children
+        return ast.Compare(left=left, op=ast.NotEq(), right=right, meta=meta)
 
     def add(self, meta: ast.Meta, children) -> ast.BinOp:
         lhs, rhs = children
         return ast.BinOp(lhs=lhs, op=ast.Add(), rhs=rhs, meta=meta)
 
-    def attribute_exit(self, tree: Tree, attribute: ast.Attribute) -> ast.Attribute:
-        ctx = self.pop_context()
-        if ctx != Context.Attribute:
-            raise CompilationError(
-                f"Expected `Attribute` context but got {ctx}",
-                attribute.meta.line,
-                attribute.meta.column,
-            )
-        return attribute
+    def sub(self, meta: ast.Meta, children) -> ast.BinOp:
+        lhs, rhs = children
+        return ast.BinOp(lhs=lhs, op=ast.Sub(), rhs=rhs, meta=meta)
 
-    def attribute(self, meta: ast.Meta, children) -> ast.Attribute:
-        value, attr, *_ = children
-        # attr should always return as a Name with type None
-        return ast.Attribute(value=value, attr=attr.id, meta=meta)
+    def mult(self, meta: ast.Meta, children) -> ast.BinOp:
+        lhs, rhs = children
+        return ast.BinOp(lhs=lhs, op=ast.Mult(), rhs=rhs, meta=meta)
 
-    def attribute_enter(self, tree) -> Tree:
-        self.push_context(Context.Attribute)
-        return tree
+    def div(self, meta: ast.Meta, children) -> ast.BinOp:
+        lhs, rhs = children
+        return ast.BinOp(lhs=lhs, op=ast.Div(), rhs=rhs, meta=meta)
+
+    def uadd(self, meta: ast.Meta, children) -> ast.UnaryOp:
+        operand, *_ = children
+        return ast.UnaryOp(op=ast.UAdd(), operand=operand, meta=meta)
+
+    def usub(self, meta: ast.Meta, children) -> ast.UnaryOp:
+        operand, *_ = children
+        return ast.UnaryOp(op=ast.USub(), operand=operand, meta=meta)
+
+    def unot(self, meta: ast.Meta, children) -> ast.UnaryOp:
+        operand, *_ = children
+        return ast.UnaryOp(op=ast.UNot(), operand=operand, meta=meta)
 
     def subscript_list_exit(self, tree: Tree, index: ast.IndexType) -> ast.IndexType:
         ctx = self.pop_context()
@@ -259,6 +264,25 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
 
     def subscript_enter(self, tree) -> Tree:
         self.push_context(Context.Subscript)
+        return tree
+
+    def attribute_exit(self, tree: Tree, attribute: ast.Attribute) -> ast.Attribute:
+        ctx = self.pop_context()
+        if ctx != Context.Attribute:
+            raise CompilationError(
+                f"Expected `Attribute` context but got {ctx}",
+                attribute.meta.line,
+                attribute.meta.column,
+            )
+        return attribute
+
+    def attribute(self, meta: ast.Meta, children) -> ast.Attribute:
+        value, attr, *_ = children
+        # attr should always return as a Name with type None
+        return ast.Attribute(value=value, attr=attr.id, meta=meta)
+
+    def attribute_enter(self, tree) -> Tree:
+        self.push_context(Context.Attribute)
         return tree
 
     def TYPE(self, token: Token) -> _DiscardType:

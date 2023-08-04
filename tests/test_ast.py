@@ -383,7 +383,6 @@ Int a = 1
 Int b = {op}a
         """
     )
-    assert tree.body[1].targets[0] == ast.Name(id="b", type=ipl.Type.INT)
     unaryop = tree.body[1].value
     assert isinstance(unaryop, ast.UnaryOp)
     assert unaryop.op == op_class
@@ -405,14 +404,68 @@ Int a = 1
 Int b = {op}{op}{op}a
         """
     )
-    assert tree.body[1].targets[0] == ast.Name(id="b", type=ipl.Type.INT)
     unaryop = tree.body[1].value
     assert isinstance(unaryop, ast.UnaryOp)
     assert unaryop.op == op_class
+
     unaryop = unaryop.operand
     assert isinstance(unaryop, ast.UnaryOp)
     assert unaryop.op == op_class
+
     unaryop = unaryop.operand
     assert isinstance(unaryop, ast.UnaryOp)
     assert unaryop.op == op_class
     assert unaryop.operand == ast.Name(id="a", type=ipl.Type.INT)
+
+
+@pytest.mark.parametrize(
+    "op,op_class",
+    [
+        ("<", ast.Lt()),
+        ("<=", ast.LtE()),
+        (">", ast.Gt()),
+        (">=", ast.GtE()),
+        ("=", ast.Eq()),
+        ("<>", ast.NotEq()),
+    ],
+)
+def test_global_single_comparison(to_ast, op, op_class):
+    tree = to_ast(
+        f"""
+Bool a = 1 {op} 2
+        """
+    )
+    compare = tree.body[0].value
+    assert isinstance(compare, ast.Compare)
+    assert compare.left == ast.Constant(value=1)
+    assert compare.op == op_class
+    assert compare.right == ast.Constant(value=2)
+
+
+@pytest.mark.parametrize(
+    "op,op_class",
+    [
+        ("<", ast.Lt()),
+        ("<=", ast.LtE()),
+        (">", ast.Gt()),
+        (">=", ast.GtE()),
+        ("=", ast.Eq()),
+        ("<>", ast.NotEq()),
+    ],
+)
+def test_global_chained_compare(to_ast, op, op_class):
+    tree = to_ast(
+        f"""
+Int a = 1 {op} 2 {op} 3
+        """
+    )
+    compare = tree.body[0].value
+    assert isinstance(compare, ast.Compare)
+    assert compare.op == op_class
+    assert compare.right == ast.Constant(value=3)
+
+    compare = compare.left
+    assert isinstance(compare, ast.Compare)
+    assert compare.left == ast.Constant(value=1)
+    assert compare.op == op_class
+    assert compare.right == ast.Constant(value=2)

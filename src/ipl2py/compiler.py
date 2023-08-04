@@ -24,5 +24,4 @@ def compile(content: str, include_comments=True) -> Tree:
     tree = parse(content, include_comments=include_comments)
     symtable = create_symtable(tree)
     ast = create_ast(tree, symtable)
-    logger.debug("ast=%s", ast)
-    return tree
+    return ast
