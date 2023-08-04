@@ -366,3 +366,51 @@ def test_global_compound_binop_precedence_with_parantheses(to_ast):
     assert inner_binop.lhs == ast.Constant(value=2)
     assert inner_binop.op == ast.Add()
     assert inner_binop.rhs == ast.Constant(value=3)
+
+
+@pytest.mark.parametrize(
+    "op,op_class",
+    [
+        ("+", ast.UAdd()),
+        ("-", ast.USub()),
+    ],
+)
+def test_global_single_unaryop(to_ast, op, op_class):
+    tree = to_ast(
+        f"""
+Int a = 1
+Int b = {op}a
+        """
+    )
+    assert tree.body[1].targets[0] == ast.Name(id="b", type=ipl.Type.INT)
+    unaryop = tree.body[1].value
+    assert isinstance(unaryop, ast.UnaryOp)
+    assert unaryop.op == op_class
+    assert unaryop.operand == ast.Name(id="a", type=ipl.Type.INT)
+
+
+@pytest.mark.parametrize(
+    "op,op_class",
+    [
+        ("+", ast.UAdd()),
+        ("-", ast.USub()),
+    ],
+)
+def test_global_chained_unaryop(to_ast, op, op_class):
+    tree = to_ast(
+        f"""
+Int a = 1
+Int b = {op}{op}{op}a
+        """
+    )
+    assert tree.body[1].targets[0] == ast.Name(id="b", type=ipl.Type.INT)
+    unaryop = tree.body[1].value
+    assert isinstance(unaryop, ast.UnaryOp)
+    assert unaryop.op == op_class
+    unaryop = unaryop.operand
+    assert isinstance(unaryop, ast.UnaryOp)
+    assert unaryop.op == op_class
+    unaryop = unaryop.operand
+    assert isinstance(unaryop, ast.UnaryOp)
+    assert unaryop.op == op_class
+    assert unaryop.operand == ast.Name(id="a", type=ipl.Type.INT)

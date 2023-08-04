@@ -1,6 +1,6 @@
 import logging
 from enum import Enum, auto
-from typing import Any, Dict, Generic, List, TypeVar, Union
+from typing import Any, Generic, List, Mapping, TypeVar, Union
 
 import numpy as np
 from lark import Discard, Token, Tree
@@ -47,7 +47,7 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         return ctx
 
     def default_value(self, type_: ipl.Type) -> Union[int, float, bool, str, None]:
-        defaults: Dict[str, Any] = {
+        defaults: Mapping[str, Any] = {
             "INT": 0,
             "FLOAT": 0.0,
             "BOOL": False,
@@ -171,6 +171,14 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         name, value, *_ = children
         return ast.Assign(targets=[name], value=value, meta=meta)
 
+    def usub(self, meta: ast.Meta, children) -> ast.UnaryOp:
+        operand, *_ = children
+        return ast.UnaryOp(op=ast.USub(), operand=operand, meta=meta)
+
+    def uadd(self, meta: ast.Meta, children) -> ast.UnaryOp:
+        operand, *_ = children
+        return ast.UnaryOp(op=ast.UAdd(), operand=operand, meta=meta)
+
     def div(self, meta: ast.Meta, children) -> ast.BinOp:
         lhs, rhs = children
         return ast.BinOp(lhs=lhs, op=ast.Div(), rhs=rhs, meta=meta)
@@ -280,10 +288,13 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
             )
 
         if symbol is None:
-            # This unknown symbol may be an IPL constant
-            ipl_constant = ipl.Constant(name)
-            if ipl_constant:
-                return ast.Constant(value=ipl_constant)
+            try:
+                # This unknown symbol may be an IPL constant
+                ipl_constant = ipl.Constant(name)
+                if ipl_constant:
+                    return ast.Constant(value=ipl_constant)
+            except ValueError:
+                pass
             raise CompilationError(
                 f"Usage of unknown identifier {name}",
                 token.line,
