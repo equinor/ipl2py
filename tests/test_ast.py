@@ -373,6 +373,7 @@ def test_global_compound_binop_precedence_with_parantheses(to_ast):
     [
         ("+", ast.UAdd()),
         ("-", ast.USub()),
+        ("NOT ", ast.UNot()),
     ],
 )
 def test_global_single_unaryop(to_ast, op, op_class):
@@ -394,6 +395,7 @@ Int b = {op}a
     [
         ("+", ast.UAdd()),
         ("-", ast.USub()),
+        ("NOT ", ast.UNot()),
     ],
 )
 def test_global_chained_unaryop(to_ast, op, op_class):
