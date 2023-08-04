@@ -20,8 +20,14 @@ def create_ast(tree: Tree, symtable: SymbolTable):
     return TreeToAstTransformer(symtable).transform(tree)
 
 
-def compile(content: str, include_comments=True) -> Tree:
+def compile(
+    content: str, include_comments=True, print_parse_tree=False, pretty=False
+) -> Tree:
     tree = parse(content, include_comments=include_comments)
+
+    if print_parse_tree:
+        print(tree.pretty() if pretty else tree)
+
     symtable = create_symtable(tree)
     ast = create_ast(tree, symtable)
     return ast
