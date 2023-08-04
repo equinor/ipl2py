@@ -6,7 +6,7 @@ import numpy as np
 import ipl2py.ipl as ipl
 
 ArrayType = Union["Array1D", "Array2D", "Array3D"]
-UnaryOpsType = Union["UAdd", "USub"]
+UnaryOpsType = Union["UAdd", "USub", "UNot"]
 BinOpsType = Union["Add", "Sub", "Mult", "Div"]
 ExprType = Union[ArrayType, BinOpsType, "Compare", "Constant", "Name"]
 IndexType = Union["Index1D", "Index2D", "Index3D"]
@@ -100,6 +100,11 @@ class UAdd:
 
 @dataclass
 class USub:
+    pass
+
+
+@dataclass
+class UNot:
     pass
 
 

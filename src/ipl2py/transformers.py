@@ -171,6 +171,10 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         name, value, *_ = children
         return ast.Assign(targets=[name], value=value, meta=meta)
 
+    def unot(self, meta: ast.Meta, children) -> ast.UnaryOp:
+        operand, *_ = children
+        return ast.UnaryOp(op=ast.UNot(), operand=operand, meta=meta)
+
     def usub(self, meta: ast.Meta, children) -> ast.UnaryOp:
         operand, *_ = children
         return ast.UnaryOp(op=ast.USub(), operand=operand, meta=meta)
