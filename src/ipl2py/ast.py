@@ -1,17 +1,25 @@
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 
 import ipl2py.ipl as ipl
 
 ArrayType = Union["Array1D", "Array2D", "Array3D"]
+IndexType = Union["Index1D", "Index2D", "Index3D"]
+
 UnaryOpsType = Union["UAdd", "USub", "UNot"]
 BinOpsType = Union["Add", "Sub", "Mult", "Div"]
 CompareOpsType = Union["Lt", "LtE", "Gt", "GtE", "Eq", "NotEq"]
-ExprType = Union[ArrayType, BinOpsType, "Compare", "Constant", "Name"]
-IndexType = Union["Index1D", "Index2D", "Index3D"]
-Statement = Union["Assign"]
+BoolOpsType = Union["And", "Or"]
+
+ExprType = Union[
+    ArrayType, IndexType, "BinOp", "Compare", "Constant", "Name", "UnaryOp"
+]
+TestType = Union["BoolOp", ExprType]
+
+Statement = Union["Assign", "If", "Halt"]
+Body = List[Statement]
 
 
 @dataclass
@@ -137,9 +145,9 @@ class Div:
 
 @dataclass
 class BinOp(_Base):
-    lhs: ExprType
+    left: ExprType
     op: BinOpsType
-    rhs: ExprType
+    right: ExprType
 
 
 @dataclass
@@ -178,6 +186,35 @@ class Compare(_Base):
     left: ExprType
     op: CompareOpsType
     right: ExprType
+
+
+@dataclass
+class And:
+    pass
+
+
+@dataclass
+class Or:
+    pass
+
+
+@dataclass
+class BoolOp(_Base):
+    left: ExprType
+    op: BoolOpsType
+    right: ExprType
+
+
+@dataclass
+class If(_Base):
+    test: TestType
+    body: Body
+    orelse: Optional[Body]
+
+
+@dataclass
+class Halt(_Base):
+    pass
 
 
 @dataclass

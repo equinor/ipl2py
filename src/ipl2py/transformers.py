@@ -167,6 +167,24 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         value = ast.Constant(value=self.default_value(name.type))
         return ast.Assign(targets=[name], value=value, meta=meta)
 
+    def suite(self, meta: ast.Meta, children) -> ast.Body:
+        return children
+
+    def if_stmt(self, meta: ast.Meta, children) -> ast.If:
+        test, if_suite, else_suite, *_ = children
+        return ast.If(test=test, body=if_suite, orelse=else_suite, meta=meta)
+
+    def halt_stmt(self, meta: ast.Meta, children) -> ast.Halt:
+        return ast.Halt(meta=meta)
+
+    def and_test(self, meta: ast.Meta, children) -> ast.BoolOp:
+        left, right = children
+        return ast.BoolOp(left=left, op=ast.And(), right=right, meta=meta)
+
+    def or_test(self, meta: ast.Meta, children) -> ast.BoolOp:
+        left, right = children
+        return ast.BoolOp(left=left, op=ast.Or(), right=right, meta=meta)
+
     def assign(self, meta: ast.Meta, children) -> ast.Assign:
         name, value, *_ = children
         return ast.Assign(targets=[name], value=value, meta=meta)
@@ -196,20 +214,20 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         return ast.Compare(left=left, op=ast.NotEq(), right=right, meta=meta)
 
     def add(self, meta: ast.Meta, children) -> ast.BinOp:
-        lhs, rhs = children
-        return ast.BinOp(lhs=lhs, op=ast.Add(), rhs=rhs, meta=meta)
+        left, right = children
+        return ast.BinOp(left=left, op=ast.Add(), right=right, meta=meta)
 
     def sub(self, meta: ast.Meta, children) -> ast.BinOp:
-        lhs, rhs = children
-        return ast.BinOp(lhs=lhs, op=ast.Sub(), rhs=rhs, meta=meta)
+        left, right = children
+        return ast.BinOp(left=left, op=ast.Sub(), right=right, meta=meta)
 
     def mult(self, meta: ast.Meta, children) -> ast.BinOp:
-        lhs, rhs = children
-        return ast.BinOp(lhs=lhs, op=ast.Mult(), rhs=rhs, meta=meta)
+        left, right = children
+        return ast.BinOp(left=left, op=ast.Mult(), right=right, meta=meta)
 
     def div(self, meta: ast.Meta, children) -> ast.BinOp:
-        lhs, rhs = children
-        return ast.BinOp(lhs=lhs, op=ast.Div(), rhs=rhs, meta=meta)
+        left, right = children
+        return ast.BinOp(left=left, op=ast.Div(), right=right, meta=meta)
 
     def uadd(self, meta: ast.Meta, children) -> ast.UnaryOp:
         operand, *_ = children
