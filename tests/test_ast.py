@@ -314,9 +314,9 @@ def test_global_simple_binops(to_ast, op, op_str):
     tree = to_ast(f"Int a = 1 {op_str} 2")
     binop = tree.body[0].value
     assert isinstance(binop, ast.BinOp)
-    assert binop.lhs == ast.Constant(value=1)
+    assert binop.left == ast.Constant(value=1)
     assert binop.op == op
-    assert binop.rhs == ast.Constant(value=2)
+    assert binop.right == ast.Constant(value=2)
 
 
 def test_global_compound_binop_precedence(to_ast):
@@ -327,45 +327,45 @@ def test_global_compound_binop_precedence(to_ast):
     assert root_binop.op == ast.Add()
 
     # (1 - 2)
-    lhs_binop = root_binop.lhs
-    assert lhs_binop.lhs == ast.Constant(value=1)
+    lhs_binop = root_binop.left
+    assert lhs_binop.left == ast.Constant(value=1)
     assert lhs_binop.op == ast.Sub()
-    assert lhs_binop.rhs == ast.Constant(value=2)
+    assert lhs_binop.right == ast.Constant(value=2)
 
     # ((3 * 4) / 5)
-    rhs_binop = root_binop.rhs
+    rhs_binop = root_binop.right
     assert rhs_binop.op == ast.Div()
-    assert rhs_binop.rhs == ast.Constant(value=5)
+    assert rhs_binop.right == ast.Constant(value=5)
 
     # (3 * 4)
-    inner_binop = rhs_binop.lhs
-    assert inner_binop.lhs == ast.Constant(value=3)
+    inner_binop = rhs_binop.left
+    assert inner_binop.left == ast.Constant(value=3)
     assert inner_binop.op == ast.Mult()
-    assert inner_binop.rhs == ast.Constant(value=4)
+    assert inner_binop.right == ast.Constant(value=4)
 
 
 def test_global_compound_binop_precedence_with_parantheses(to_ast):
     tree = to_ast("Int a = 1 - ((2 + 3) * 4) / 5")
     root_binop = tree.body[0].value
     assert isinstance(root_binop, ast.BinOp)
-    assert root_binop.lhs == ast.Constant(value=1)
+    assert root_binop.left == ast.Constant(value=1)
     assert root_binop.op == ast.Sub()
 
     # ((2 + 3) * 4) / 5
-    rhs_binop = root_binop.rhs
-    assert rhs_binop.rhs == ast.Constant(value=5)
+    rhs_binop = root_binop.right
+    assert rhs_binop.right == ast.Constant(value=5)
     assert rhs_binop.op == ast.Div()
 
     # (2 + 3) * 4
-    inner_lhs_binop = rhs_binop.lhs
+    inner_lhs_binop = rhs_binop.left
     assert inner_lhs_binop.op == ast.Mult()
-    assert inner_lhs_binop.rhs == ast.Constant(value=4)
+    assert inner_lhs_binop.right == ast.Constant(value=4)
 
     # 2 + 3
-    inner_binop = inner_lhs_binop.lhs
-    assert inner_binop.lhs == ast.Constant(value=2)
+    inner_binop = inner_lhs_binop.left
+    assert inner_binop.left == ast.Constant(value=2)
     assert inner_binop.op == ast.Add()
-    assert inner_binop.rhs == ast.Constant(value=3)
+    assert inner_binop.right == ast.Constant(value=3)
 
 
 @pytest.mark.parametrize(
@@ -469,3 +469,170 @@ Int a = 1 {op} 2 {op} 3
     assert compare.left == ast.Constant(value=1)
     assert compare.op == op_class
     assert compare.right == ast.Constant(value=2)
+
+
+def test_global_halt(to_ast):
+    tree = to_ast("HALT")
+    assert isinstance(tree.body[0], ast.Halt)
+
+
+def test_global_simple_if(to_ast):
+    tree = to_ast(
+        """
+IF 1 THEN
+    HALT
+ENDIF
+        """
+    )
+    if_ = tree.body[0]
+    assert isinstance(if_, ast.If)
+    assert if_.test == ast.Constant(value=1)
+    assert len(if_.body) == 1 and isinstance(if_.body[0], ast.Halt)
+    assert if_.orelse is None
+
+
+def test_global_simple_if_else(to_ast):
+    tree = to_ast(
+        """
+IF 1 THEN
+    HALT
+ELSE
+    HALT
+ENDIF
+        """
+    )
+    if_ = tree.body[0]
+    assert isinstance(if_, ast.If)
+    assert if_.test == ast.Constant(value=1)
+    assert len(if_.body) == 1 and isinstance(if_.body[0], ast.Halt)
+    assert len(if_.orelse) == 1 and isinstance(if_.orelse[0], ast.Halt)
+
+
+@pytest.mark.parametrize(
+    "test_str,boolop,left,op,right",
+    [
+        (
+            "TRUE AND TRUE",
+            ast.BoolOp,
+            ast.Constant(value=True),
+            ast.And(),
+            ast.Constant(value=True),
+        ),
+        (
+            "1 OR 2",
+            ast.BoolOp,
+            ast.Constant(value=1),
+            ast.Or(),
+            ast.Constant(value=2),
+        ),
+        (
+            "1 <= 2",
+            ast.Compare,
+            ast.Constant(value=1),
+            ast.LtE(),
+            ast.Constant(value=2),
+        ),
+        (
+            "TRUE = FALSE",
+            ast.Compare,
+            ast.Constant(value=True),
+            ast.Eq(),
+            ast.Constant(value=False),
+        ),
+        (
+            '"hi" <> "bye"',
+            ast.Compare,
+            ast.Constant(value="hi"),
+            ast.NotEq(),
+            ast.Constant(value="bye"),
+        ),
+        (
+            "1 + 2",
+            ast.BinOp,
+            ast.Constant(value=1),
+            ast.Add(),
+            ast.Constant(value=2),
+        ),
+    ],
+)
+def test_global_various_binary_if_tests(to_ast, test_str, boolop, left, op, right):
+    tree = to_ast(
+        f"""
+IF {test_str} THEN
+    HALT
+ENDIF
+        """
+    )
+    if_ = tree.body[0]
+    assert isinstance(if_, ast.If)
+    test = if_.test
+    assert isinstance(test, boolop)
+    assert test.left == left
+    assert test.op == op
+    assert test.right == right
+    assert len(if_.body) == 1 and isinstance(if_.body[0], ast.Halt)
+    assert if_.orelse is None
+
+
+def test_global_compound_if_test_precendence(to_ast):
+    # Should resolve to (T & F) | T
+    tree = to_ast(
+        """
+IF TRUE AND FALSE OR TRUE THEN
+    HALT
+ENDIF
+        """
+    )
+    if_ = tree.body[0]
+    assert isinstance(if_, ast.If)
+    test = if_.test
+    assert isinstance(test, ast.BoolOp)
+    left = test.left
+    assert test.right == ast.Constant(value=True)
+    assert test.op == ast.Or()
+
+    assert isinstance(left, ast.BoolOp)
+    assert left.left == ast.Constant(value=True)
+    assert left.op == ast.And()
+    assert left.right == ast.Constant(value=False)
+    assert len(if_.body) == 1 and isinstance(if_.body[0], ast.Halt)
+    assert if_.orelse is None
+
+
+def test_global_a_semi_complex_compound_if_test(to_ast):
+    tree = to_ast(
+        """
+Int a, b, c, d
+IF (a > 2 AND a < 4) AND (b = c OR d <> 0) THEN
+    HALT
+ENDIF
+        """
+    )
+    if_ = tree.body[4]
+    assert isinstance(if_, ast.If)
+    test = if_.test
+    assert isinstance(test, ast.BoolOp)
+    assert test.op == ast.And()
+
+    left = test.left
+    assert isinstance(left, ast.BoolOp)
+    assert left.op == ast.And()
+    assert left.left.left == ast.Name(id="a", type=ipl.Type.INT)
+    assert left.left.op == ast.Gt()
+    assert left.left.right == ast.Constant(value=2)
+    assert left.right.left == ast.Name(id="a", type=ipl.Type.INT)
+    assert left.right.op == ast.Lt()
+    assert left.right.right == ast.Constant(value=4)
+
+    right = test.right
+    assert isinstance(right, ast.BoolOp)
+    assert right.op == ast.Or()
+    assert right.left.left == ast.Name(id="b", type=ipl.Type.INT)
+    assert right.left.op == ast.Eq()
+    assert right.left.right == ast.Name(id="c", type=ipl.Type.INT)
+    assert right.right.left == ast.Name(id="d", type=ipl.Type.INT)
+    assert right.right.op == ast.NotEq()
+    assert right.right.right == ast.Constant(value=0)
+
+    assert len(if_.body) == 1 and isinstance(if_.body[0], ast.Halt)
+    assert if_.orelse is None
