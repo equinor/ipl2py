@@ -8,6 +8,7 @@ import ipl2py.ipl as ipl
 ArrayType = Union["Array1D", "Array2D", "Array3D"]
 UnaryOpsType = Union["UAdd", "USub", "UNot"]
 BinOpsType = Union["Add", "Sub", "Mult", "Div"]
+CompareOpsType = Union["Lt", "LtE", "Gt", "GtE", "Eq", "NotEq"]
 ExprType = Union[ArrayType, BinOpsType, "Compare", "Constant", "Name"]
 IndexType = Union["Index1D", "Index2D", "Index3D"]
 Statement = Union["Assign"]
@@ -143,14 +144,39 @@ class BinOp(_Base):
 
 @dataclass
 class Lt:
-    left: Constant
-    right: ExprType
+    pass
 
 
 @dataclass
-class Compare:
-    op: Union[Lt]
+class LtE:
+    pass
+
+
+@dataclass
+class Gt:
+    pass
+
+
+@dataclass
+class GtE:
+    pass
+
+
+@dataclass
+class Eq:
+    pass
+
+
+@dataclass
+class NotEq:
+    pass
+
+
+# IPL's compare is left-recursive.
+@dataclass
+class Compare(_Base):
     left: ExprType
+    op: CompareOpsType
     right: ExprType
 
 
