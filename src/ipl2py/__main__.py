@@ -73,7 +73,14 @@ def parse_args() -> Namespace:
         "--pretty",
         action="store_true",
         dest="pretty",
-        help="Pretty print the parse tree",
+        help="Pretty print any trees that are printed",
+        default=False,
+    )
+    parser.add_argument(
+        "--parse-tree",
+        action="store_true",
+        dest="print_parse_tree",
+        help="Print the parse tree",
         default=False,
     )
     parser.add_argument(
@@ -99,10 +106,15 @@ def main():
     else:
         content = get_test_tree()
 
-    ast = compile(content, include_comments=False if args.no_comments else True)
+    ast = compile(
+        content,
+        include_comments=False if args.no_comments else True,
+        print_parse_tree=args.print_parse_tree,
+        pretty=args.pretty,
+    )
 
     if args.pretty:
-        print(ast.pretty())
+        print("Pretty printing the AST is not yet implemented")
     else:
         print(ast)
 
