@@ -65,7 +65,7 @@ subscript_list: (test ",")~0..2 test
      | molecule "." NAME               -> attribute
      | atom
 ?atom: BOOL | INT | FLOAT | STRING | SYSDEF | NAME
-     | "(" expr_stmt ("," expr_stmt)~1..2")" -> point
+     | "(" expr "," expr ["," expr] ")" -> point
      | "(" test ")"
 
 // .1 for priority over NAME

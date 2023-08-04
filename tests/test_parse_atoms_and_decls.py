@@ -51,7 +51,7 @@ def test_valid_simple_tokens(parse_tree, token, value):
 def test_valid_point_token(parse_tree):
     tree = parse_tree("(1,2.1)")
     expected = Tree(
-        "start", [Tree("point", [Token("INT", "1"), Token("FLOAT", "2.1")])]
+        "start", [Tree("point", [Token("INT", "1"), Token("FLOAT", "2.1"), None])]
     )
     assert tree == expected
 
