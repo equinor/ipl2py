@@ -66,8 +66,8 @@ addopts = "--doctest-modules --ignore=docs --cov=ipl2py"
 
 [tool.coverage.run]
 omit = [
-    "src/ipl2py/__init__.py",
-    "src/ipl2py/__main__.py",
-    "src/ipl2py/version.py",
-    "src/ipl2py/utils.py",
+    "__init__.py",
+    "__main__.py",
+    "version.py",
+    "utils.py",
 ]
