@@ -673,6 +673,7 @@ ENDFUNCTION
         """
     )
     fn = tree.body[0]
+    assert isinstance(fn, ast.Function)
     assert fn.name.id == "a"
     assert fn.name.type is None
     assert fn.params == []
@@ -689,6 +690,7 @@ ENDFUNCTION
         """
     )
     fn = tree.body[0]
+    assert isinstance(fn, ast.Function)
     assert fn.name.id == "a"
     assert fn.name.type is ipl.Type.INT
     assert fn.params == []
@@ -706,6 +708,7 @@ ENDFUNCTION
         """
     )
     fn = tree.body[0]
+    assert isinstance(fn, ast.Function)
     assert fn.name.id == "a"
     assert fn.name.type is None
     assert fn.params == [
@@ -725,6 +728,7 @@ ENDFUNCTION
         """
     )
     fn = tree.body[0]
+    assert isinstance(fn, ast.Function)
     assert fn.name.id == "a"
     assert fn.name.type is ipl.Type.FLOAT
     assert fn.params == [
@@ -752,6 +756,7 @@ ENDFUNCTION
         """
     )
     fn = tree.body[0]
+    assert isinstance(fn, ast.Function)
     assert fn.name.id == "a"
     assert fn.name.type is ipl.Type.BOOL
 
@@ -794,6 +799,7 @@ ENDFUNCTION
     )
     assert_ast_constant_assign(tree.body[0], "a", ipl.Type.INT, 0)
     fn = tree.body[1]
+    assert isinstance(fn, ast.Function)
     assert fn.name.id == "a"
     assert fn.name.type is ipl.Type.INT
 
@@ -801,3 +807,115 @@ ENDFUNCTION
     assert isinstance(fn.body[0].value, ast.Name)
     assert fn.body[0].value.id == "a"
     assert fn.body[0].value.type == ipl.Type.INT
+
+
+def test_simple_global_call(to_ast):
+    tree = to_ast(
+        """
+FUNCTION f()
+    HALT
+ENDFUNCTION
+f()
+        """
+    )
+    assert isinstance(tree.body[0], ast.Function)
+    call = tree.body[1]
+    assert isinstance(call, ast.Call)
+    assert call.func == tree.body[0].name
+    assert call.args == []
+
+
+def test_simple_global_call_with_constant_argument(to_ast):
+    tree = to_ast(
+        """
+FUNCTION f(Int a)
+    HALT
+ENDFUNCTION
+f(1)
+        """
+    )
+    assert isinstance(tree.body[0], ast.Function)
+    call = tree.body[1]
+    assert isinstance(call, ast.Call)
+    assert call.func == tree.body[0].name
+    assert call.args == [ast.Constant(value=1)]
+
+
+def test_simple_global_call_with_multiple_argument_types(to_ast):
+    tree = to_ast(
+        """
+Int a, b
+Bool c
+FUNCTION f(Int c, Int d, Bool e)
+    HALT
+ENDFUNCTION
+f(a, b, c)
+        """
+    )
+    assert isinstance(tree.body[3], ast.Function)
+    call = tree.body[4]
+    assert isinstance(call, ast.Call)
+    assert call.func == tree.body[3].name
+    assert call.args == [
+        ast.Name(id="a", type=ipl.Type.INT),
+        ast.Name(id="b", type=ipl.Type.INT),
+        ast.Name(id="c", type=ipl.Type.BOOL),
+    ]
+
+
+def test_simple_global_call_with_multiple_expressions_as_arguments(to_ast):
+    tree = to_ast(
+        """
+Int a, b
+FUNCTION f(Int c, Bool d, Float e)
+    HALT
+ENDFUNCTION
+f((a + 1) * b, b = a, 1 / 2)
+        """
+    )
+    assert isinstance(tree.body[2], ast.Function)
+    call = tree.body[3]
+    assert isinstance(call, ast.Call)
+    assert call.func == tree.body[2].name
+
+    arg_1 = call.args[0]
+    assert isinstance(arg_1, ast.BinOp)
+    assert arg_1.op == ast.Mult()
+    assert arg_1.right == ast.Name(id="b", type=ipl.Type.INT)
+    assert isinstance(arg_1.left, ast.BinOp)
+    assert arg_1.left.left == ast.Name(id="a", type=ipl.Type.INT)
+    assert arg_1.left.right == ast.Constant(value=1)
+
+    arg_2 = call.args[1]
+    assert isinstance(arg_2, ast.Compare)
+    assert arg_2.left == ast.Name(id="b", type=ipl.Type.INT)
+    assert arg_2.op == ast.Eq()
+    assert arg_2.right == ast.Name(id="a", type=ipl.Type.INT)
+
+    arg_3 = call.args[2]
+    assert isinstance(arg_3, ast.BinOp)
+    assert arg_3.left == ast.Constant(value=1)
+    assert arg_3.op == ast.Div()
+    assert arg_3.right == ast.Constant(value=2)
+
+
+def test_simple_recursive_and_nested_call(to_ast):
+    tree = to_ast(
+        """
+FUNCTION f()
+    f()
+ENDFUNCTION
+f(f())
+        """
+    )
+    recursive_call = tree.body[0].body[0]
+    assert isinstance(recursive_call, ast.Call)
+    assert recursive_call.func == ast.Name(id="f", type=None)
+    assert recursive_call.args == []
+
+    call = tree.body[1]
+    assert isinstance(call, ast.Call)
+    assert call.func == tree.body[0].name
+    inner_call = call.args[0]
+    assert isinstance(inner_call, ast.Call)
+    assert inner_call.func == tree.body[0].name

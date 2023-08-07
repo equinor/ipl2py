@@ -23,8 +23,8 @@ class Context(Enum):
     Attribute = auto()
     Subscript = auto()
     SubscriptList = auto()
+    FunctionDecl = auto()
     Param = auto()
-    CallableDecl = auto()
 
 
 class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
@@ -165,19 +165,19 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
                 name.column,
             )
         self.push_scope(scope)
-        self.push_context(Context.CallableDecl)
+        self.push_context(Context.FunctionDecl)
         return tree
 
-    def proc_def_exit(self, tree: Tree, procedure: ast.Procedure) -> ast.Procedure:
+    def proc_def_exit(self, tree: Tree, procedure: ast.Function) -> ast.Function:
         self.pop_scope()
         return procedure
 
-    def proc_def(self, meta: ast.Meta, children) -> ast.Procedure:
+    def proc_def(self, meta: ast.Meta, children) -> ast.Function:
         name, params, suite, *_ = children
         if not isinstance(params, list):
             params = [params] if params else []
         statements = self._flatten_children(suite)
-        return ast.Procedure(name=name, params=params, body=statements, meta=meta)
+        return ast.Function(name=name, params=params, body=statements, meta=meta)
 
     def proc_def_enter(self, tree: Tree) -> Tree:
         name, *_ = tree.children
@@ -190,7 +190,7 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
                 name.column,
             )
         self.push_scope(scope)
-        self.push_context(Context.CallableDecl)
+        self.push_context(Context.FunctionDecl)
         return tree
 
     def param_list(self, meta: ast.Meta, assigns: List[ast.Param]) -> List[ast.Param]:
@@ -263,15 +263,22 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         return children
 
     def suite_enter(self, tree: Tree) -> Tree:
-        if self.get_context() == Context.CallableDecl:
+        if self.get_context() == Context.FunctionDecl:
             ctx = self.pop_context()
-            if ctx != Context.CallableDecl:
+            if ctx != Context.FunctionDecl:
                 raise CompilationError(
-                    f"Expected {Context.CallableDecl} context but got {ctx}",
+                    f"Expected {Context.FunctionDecl} context but got {ctx}",
                     tree.meta.line,
                     tree.meta.column,
                 )
         return tree
+
+    def arg_list(self, meta: ast.Meta, children) -> List[ast.ExprType]:
+        return children
+
+    def call(self, meta: ast.Meta, children) -> ast.Call:
+        name, args, *_ = children
+        return ast.Call(func=name, args=args or [], meta=meta)
 
     def return_stmt(self, meta: ast.Meta, children) -> ast.Return:
         expr, *_ = children
@@ -435,10 +442,10 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         symbol = self.lookup(name)
         # This name could be the name of the callable but even though
         # we would be in its scope now, it could have a parameter or
-        # local variable of the same name. CallableDecl context is
+        # local variable of the same name. FunctionDecl context is
         # popped when we enter the body. Parameters push their own
         # wrapping context so this condition won't be true for them.
-        if self.get_context() in [Context.CallableDecl]:
+        if self.get_context() == Context.FunctionDecl:
             symbol = self.callable_lookup(name)
 
         if symbol is not None:
