@@ -216,6 +216,12 @@ class Return(_Base):
 
 
 @dataclass
+class Call(_Base):
+    func: Name
+    args: List[ExprType]
+
+
+@dataclass
 class If(_Base):
     test: TestType
     body: Body
@@ -242,15 +248,10 @@ class Param(Name):
 
 
 @dataclass
-class Procedure(_Base):
+class Function(_Base):
     name: Name
     params: List[Param]
     body: Body
-
-
-@dataclass
-class Function(Procedure):
-    pass
 
 
 @dataclass
