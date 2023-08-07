@@ -4,7 +4,7 @@ from lark import Tree
 
 from .parser import parse
 from .symtable import SymbolTable, SymbolTableType
-from .transformers import TreeToAstTransformer
+from .transformers import AstTransformer
 from .visitors import SymbolTableVisitor
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ def create_symtable(tree: Tree) -> SymbolTable:
 
 
 def create_ast(tree: Tree, symtable: SymbolTable):
-    return TreeToAstTransformer(symtable).transform(tree)
+    return AstTransformer(symtable).transform(tree)
 
 
 def compile(

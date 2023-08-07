@@ -18,7 +18,7 @@ ExprType = Union[
 ]
 TestType = Union["BoolOp", ExprType]
 
-Statement = Union["Assign", "If", "Halt"]
+Statement = Union["Assign", "If", "While", "For", "Halt"]
 Body = List[Statement]
 
 
@@ -211,6 +211,11 @@ class Halt(_Base):
 
 
 @dataclass
+class Return(_Base):
+    value: ExprType
+
+
+@dataclass
 class If(_Base):
     test: TestType
     body: Body
@@ -229,6 +234,23 @@ class For(_Base):
     start: Union[Name, Constant]
     end: Union[Name, Constant]
     body: Body
+
+
+@dataclass
+class Param(Name):
+    pass
+
+
+@dataclass
+class Procedure(_Base):
+    name: Name
+    params: List[Param]
+    body: Body
+
+
+@dataclass
+class Function(Procedure):
+    pass
 
 
 @dataclass

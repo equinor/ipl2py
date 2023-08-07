@@ -1,4 +1,9 @@
+from typing import Union
+
 from lark import Token, Tree
+
+import ipl2py.ast as ast
+import ipl2py.ipl as ipl
 
 # These are meant to be used when a parse tree becomes too deeply nested
 # to sanely reconstruct it as an expected case.
@@ -27,3 +32,11 @@ def assert_comments(
     assert node.meta.header_comments == header_comments  # type: ignore
     assert node.meta.inline_comments == inline_comments  # type: ignore
     assert node.meta.footer_comments == footer_comments  # type: ignore
+
+
+def assert_ast_constant_assign(
+    assign: ast.Assign, id: str, type: ipl.Type, value: Union[str, bool, int, float]
+) -> None:
+    assert assign.targets[0].id == id
+    assert assign.targets[0].type == type
+    assert assign.value == ast.Constant(value=value)

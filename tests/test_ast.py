@@ -3,6 +3,8 @@ import pytest
 import ipl2py.ast as ast
 import ipl2py.ipl as ipl
 
+from .asserts import assert_ast_constant_assign
+
 
 def test_empty_file_creates_empty_module(to_ast):
     tree = to_ast("")
@@ -27,8 +29,7 @@ def test_global_single_decl_statement_assigns_to_default(to_ast, type, default):
     assign = tree.body[0]
     assert isinstance(assign, ast.Assign)
     assert len(assign.targets) == 1
-    assert assign.targets[0] == ast.Name(id="a", type=type)
-    assert assign.value == ast.Constant(value=default)
+    assert_ast_constant_assign(tree.body[0], "a", type, default)
 
 
 def test_global_single_assign_statement(to_ast):
@@ -38,8 +39,7 @@ def test_global_single_assign_statement(to_ast):
     assign = tree.body[0]
     assert isinstance(assign, ast.Assign)
     assert len(assign.targets) == 1
-    assert assign.targets[0] == ast.Name(id="a", type=ipl.Type.INT)
-    assert assign.value == ast.Constant(value=1)
+    assert_ast_constant_assign(tree.body[0], "a", ipl.Type.INT, 1)
 
 
 def test_global_multiple_inline_assign_statements(to_ast):
@@ -49,8 +49,7 @@ def test_global_multiple_inline_assign_statements(to_ast):
     for stmt in tree.body:
         assert isinstance(stmt, ast.Assign)
 
-    assert tree.body[0].targets == [ast.Name(id="a", type=ipl.Type.INT)]
-    assert tree.body[0].value == ast.Constant(value=1)
+    assert_ast_constant_assign(tree.body[0], "a", ipl.Type.INT, 1)
 
     assert tree.body[1].targets == [ast.Name(id="b", type=ipl.Type.INT)]
     assert isinstance(tree.body[1].value, ast.Array1D)
@@ -61,8 +60,7 @@ def test_global_multiple_inline_assign_statements(to_ast):
     assert tree.body[3].targets == [ast.Name(id="d", type=ipl.Type.INT)]
     assert isinstance(tree.body[3].value, ast.Array3D)
 
-    assert tree.body[4].targets == [ast.Name(id="e", type=ipl.Type.INT)]
-    assert tree.body[4].value == ast.Constant(value=0)
+    assert_ast_constant_assign(tree.body[4], "e", ipl.Type.INT, 0)
 
 
 def test_global_multi_single_assign_statements(to_ast):
@@ -73,19 +71,9 @@ Bool b
 Float c = 3.14
         """
     )
-    assert isinstance(tree, ast.Module)
-    assert len(tree.body) == 3
-    for stmt in tree.body:
-        assert isinstance(stmt, ast.Assign)
-
-    assert tree.body[0].targets == [ast.Name(id="a", type=ipl.Type.INT)]
-    assert tree.body[0].value == ast.Constant(value=1)
-
-    assert tree.body[1].targets == [ast.Name(id="b", type=ipl.Type.BOOL)]
-    assert tree.body[1].value == ast.Constant(value=False)
-
-    assert tree.body[2].targets == [ast.Name(id="c", type=ipl.Type.FLOAT)]
-    assert tree.body[2].value == ast.Constant(value=3.14)
+    assert_ast_constant_assign(tree.body[0], "a", ipl.Type.INT, 1)
+    assert_ast_constant_assign(tree.body[1], "b", ipl.Type.BOOL, False)
+    assert_ast_constant_assign(tree.body[2], "c", ipl.Type.FLOAT, 3.14)
 
 
 def test_global_multi_multi_assign_statements(to_ast):
@@ -96,29 +84,22 @@ Bool c, d = TRUE, e = FALSE
 Float f = 3.14, g[,,], h = -1.1
         """
     )
-    assert isinstance(tree, ast.Module)
     assert len(tree.body) == 8
     for stmt in tree.body:
         assert isinstance(stmt, ast.Assign)
 
-    assert tree.body[0].targets == [ast.Name(id="a", type=ipl.Type.INT)]
-    assert tree.body[0].value == ast.Constant(value=1)
+    assert_ast_constant_assign(tree.body[0], "a", ipl.Type.INT, 1)
     assert tree.body[1].targets == [ast.Name(id="b", type=ipl.Type.INT)]
     assert isinstance(tree.body[1].value, ast.Array1D)
 
-    assert tree.body[2].targets == [ast.Name(id="c", type=ipl.Type.BOOL)]
-    assert tree.body[2].value == ast.Constant(value=False)
-    assert tree.body[3].targets == [ast.Name(id="d", type=ipl.Type.BOOL)]
-    assert tree.body[3].value == ast.Constant(value=True)
-    assert tree.body[4].targets == [ast.Name(id="e", type=ipl.Type.BOOL)]
-    assert tree.body[4].value == ast.Constant(value=False)
+    assert_ast_constant_assign(tree.body[2], "c", ipl.Type.BOOL, False)
+    assert_ast_constant_assign(tree.body[3], "d", ipl.Type.BOOL, True)
+    assert_ast_constant_assign(tree.body[4], "e", ipl.Type.BOOL, False)
 
-    assert tree.body[5].targets == [ast.Name(id="f", type=ipl.Type.FLOAT)]
-    assert tree.body[5].value == ast.Constant(value=3.14)
+    assert_ast_constant_assign(tree.body[5], "f", ipl.Type.FLOAT, 3.14)
     assert tree.body[6].targets == [ast.Name(id="g", type=ipl.Type.FLOAT)]
     assert isinstance(tree.body[6].value, ast.Array3D)
-    assert tree.body[7].targets == [ast.Name(id="h", type=ipl.Type.FLOAT)]
-    assert tree.body[7].value == ast.Constant(value=-1.1)
+    assert_ast_constant_assign(tree.body[7], "h", ipl.Type.FLOAT, -1.1)
 
 
 def test_global_assign(to_ast):
@@ -129,17 +110,13 @@ a = 1
 a = 2
         """
     )
-    assert isinstance(tree, ast.Module)
     assert len(tree.body) == 3
     for stmt in tree.body:
         assert isinstance(stmt, ast.Assign)
 
-    assert tree.body[0].targets == [ast.Name(id="a", type=ipl.Type.INT)]
-    assert tree.body[0].value == ast.Constant(value=0)
-    assert tree.body[1].targets == [ast.Name(id="a", type=ipl.Type.INT)]
-    assert tree.body[1].value == ast.Constant(value=1)
-    assert tree.body[2].targets == [ast.Name(id="a", type=ipl.Type.INT)]
-    assert tree.body[2].value == ast.Constant(value=2)
+    assert_ast_constant_assign(tree.body[0], "a", ipl.Type.INT, 0)
+    assert_ast_constant_assign(tree.body[1], "a", ipl.Type.INT, 1)
+    assert_ast_constant_assign(tree.body[2], "a", ipl.Type.INT, 2)
 
 
 @pytest.mark.parametrize("constant", [c for c in ipl.Constant])
@@ -161,8 +138,7 @@ Int {constant.value} = 123
 Int b = {constant.value}
         """
     )
-    assert tree.body[0].targets == [ast.Name(id=constant.value, type=ipl.Type.INT)]
-    assert tree.body[0].value == ast.Constant(value=123)
+    assert_ast_constant_assign(tree.body[0], constant.value, ipl.Type.INT, 123)
     assert tree.body[1].targets == [ast.Name(id="b", type=ipl.Type.INT)]
     assert tree.body[1].value == ast.Name(id=constant.value, type=ipl.Type.INT)
 
@@ -174,19 +150,14 @@ Int a[], length
 length = a.length
         """
     )
-    assert len(tree.body) == 3
-    for stmt in tree.body:
-        assert isinstance(stmt, ast.Assign)
-
     assert tree.body[0].targets == [ast.Name(id="a", type=ipl.Type.INT)]
     assert isinstance(tree.body[0].value, ast.Array1D)
-    assert tree.body[1].targets == [ast.Name(id="length", type=ipl.Type.INT)]
-    assert tree.body[1].value == ast.Constant(value=0)
+    assert_ast_constant_assign(tree.body[1], "length", ipl.Type.INT, 0)
 
     assert tree.body[2].targets == [ast.Name(id="length", type=ipl.Type.INT)]
     attribute = tree.body[2].value
     assert isinstance(attribute, ast.Attribute)
-    assert attribute.value == ast.Name(id="a", type=ipl.Type.INT)
+    assert attribute.value == ast.Name(id="a", type=None)
     assert attribute.attr == "length"
 
 
@@ -198,10 +169,6 @@ a[1] = 2
 a[a[1]] = 3
         """
     )
-    assert len(tree.body) == 3
-    for stmt in tree.body:
-        assert isinstance(stmt, ast.Assign)
-
     assert tree.body[0].targets == [ast.Name(id="a", type=ipl.Type.INT)]
     assert isinstance(tree.body[0].value, ast.Array1D)
 
@@ -243,10 +210,6 @@ Int a[{decl}]
 a[{index}] = 2
         """
     )
-    assert len(tree.body) == 2
-    for stmt in tree.body:
-        assert isinstance(stmt, ast.Assign)
-
     assert tree.body[0].targets == [ast.Name(id="a", type=ipl.Type.INT)]
     assert isinstance(tree.body[0].value, type)
 
@@ -271,10 +234,6 @@ Int b[]
 a[1] = a[b[2].length]
         """
     )
-    assert len(tree.body) == 3
-    for stmt in tree.body:
-        assert isinstance(stmt, ast.Assign)
-
     lhs_subscript = tree.body[2].targets[0]
     assert isinstance(lhs_subscript, ast.Subscript)
     assert lhs_subscript.value == ast.Name(id="a", type=ipl.Type.INT)
@@ -703,3 +662,142 @@ ENDFOR
     assert for_k.target == tree.body[2].targets[0]
     assert for_k.start == ast.Constant(value=1)
     assert for_k.end == ast.Constant(value=2)
+
+
+def test_simple_procedure(to_ast):
+    tree = to_ast(
+        """
+FUNCTION a()
+    HALT
+ENDFUNCTION
+        """
+    )
+    fn = tree.body[0]
+    assert fn.name.id == "a"
+    assert fn.name.type is None
+    assert fn.params == []
+    assert len(fn.body) == 1
+    assert isinstance(fn.body[0], ast.Halt)
+
+
+def test_simple_function(to_ast):
+    tree = to_ast(
+        """
+Int FUNCTION a()
+    RETURN(1)
+ENDFUNCTION
+        """
+    )
+    fn = tree.body[0]
+    assert fn.name.id == "a"
+    assert fn.name.type is ipl.Type.INT
+    assert fn.params == []
+    assert len(fn.body) == 1
+    assert isinstance(fn.body[0], ast.Return)
+    assert fn.body[0].value == ast.Constant(value=1)
+
+
+def test_simple_procedure_with_params(to_ast):
+    tree = to_ast(
+        """
+FUNCTION a(Int a, Bool b)
+    HALT
+ENDFUNCTION
+        """
+    )
+    fn = tree.body[0]
+    assert fn.name.id == "a"
+    assert fn.name.type is None
+    assert fn.params == [
+        ast.Param(id="a", type=ipl.Type.INT),
+        ast.Param(id="b", type=ipl.Type.BOOL),
+    ]
+    assert len(fn.body) == 1
+    assert isinstance(fn.body[0], ast.Halt)
+
+
+def test_simple_function_with_params(to_ast):
+    tree = to_ast(
+        """
+Float FUNCTION a(Int a, Int b)
+    RETURN(a + b)
+ENDFUNCTION
+        """
+    )
+    fn = tree.body[0]
+    assert fn.name.id == "a"
+    assert fn.name.type is ipl.Type.FLOAT
+    assert fn.params == [
+        ast.Param(id="a", type=ipl.Type.INT),
+        ast.Param(id="b", type=ipl.Type.INT),
+    ]
+    assert len(fn.body) == 1
+    assert isinstance(fn.body[0], ast.Return)
+    binop = fn.body[0].value
+    assert isinstance(binop, ast.BinOp)
+    assert binop.left == ast.Name(id="a", type=ipl.Type.INT)
+    assert binop.op == ast.Add()
+    assert binop.right == ast.Name(id="b", type=ipl.Type.INT)
+
+
+def test_simple_function_with_params_and_locals(to_ast):
+    tree = to_ast(
+        """
+Bool FUNCTION a(Int a, Int b)
+    Int c = 1
+    Int d = 2
+    b = c + d
+    RETURN(a < b)
+ENDFUNCTION
+        """
+    )
+    fn = tree.body[0]
+    assert fn.name.id == "a"
+    assert fn.name.type is ipl.Type.BOOL
+
+    assert fn.params == [
+        ast.Param(id="a", type=ipl.Type.INT),
+        ast.Param(id="b", type=ipl.Type.INT),
+    ]
+
+    assert len(fn.body) == 4
+    # Int c = 1
+    assert_ast_constant_assign(fn.body[0], "c", ipl.Type.INT, 1)
+    # Int d = 2
+    assert_ast_constant_assign(fn.body[1], "d", ipl.Type.INT, 2)
+    # b = c + d
+    assert fn.body[2].targets[0].id == "b"
+    assert fn.body[2].targets[0].type == ipl.Type.INT
+    b_val = fn.body[2].value
+    assert isinstance(b_val, ast.BinOp)
+    assert b_val.left.id == "c"
+    assert b_val.op == ast.Add()
+    assert b_val.right.id == "d"
+
+    # RETURN(a < b)
+    assert isinstance(fn.body[3], ast.Return)
+    compare = fn.body[3].value
+    assert isinstance(compare, ast.Compare)
+    assert compare.left == ast.Name(id="a", type=ipl.Type.INT)
+    assert compare.op == ast.Lt()
+    assert compare.right == ast.Name(id="b", type=ipl.Type.INT)
+
+
+def test_simple_procedure_with_scoped_symbol_collisions(to_ast):
+    tree = to_ast(
+        """
+Int a
+Int FUNCTION a(Int a)
+    RETURN(a)
+ENDFUNCTION
+        """
+    )
+    assert_ast_constant_assign(tree.body[0], "a", ipl.Type.INT, 0)
+    fn = tree.body[1]
+    assert fn.name.id == "a"
+    assert fn.name.type is ipl.Type.INT
+
+    assert fn.params == [ast.Param(id="a", type=ipl.Type.INT)]
+    assert isinstance(fn.body[0].value, ast.Name)
+    assert fn.body[0].value.id == "a"
+    assert fn.body[0].value.type == ipl.Type.INT

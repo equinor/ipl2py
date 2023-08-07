@@ -271,3 +271,9 @@ class ScopeStackBase:
 
     def lookup(self, name: str) -> Union[None, Symbol]:
         return self.get_scope().lookup(name)
+
+    def callable_lookup(self, name: str) -> Union[None, Symbol]:
+        return self.get_scope().callable_lookup(name)
+
+    def child_lookup(self, name: str) -> Union[None, SymbolTableNode]:
+        return self.get_global().get_child(name)
