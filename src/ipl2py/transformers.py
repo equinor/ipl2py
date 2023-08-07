@@ -23,9 +23,11 @@ class Context(Enum):
     Attribute = auto()
     Subscript = auto()
     SubscriptList = auto()
+    Param = auto()
+    CallableDecl = auto()
 
 
-class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
+class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
     def __init__(self, base: SymbolTable) -> None:
         super().__init__(base)
         self._context_stack: ContextStack = []
@@ -114,25 +116,103 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
 
     def _transform_tree(self, tree):
         tree = self._call_userfunc_enter(tree)
+
         children = list(self._transform_children(tree.children))
         node = self._call_userfunc(tree, children)
+
         exit_node = self._call_userfunc_exit(tree, node)
         return exit_node
 
-    def transform(self, tree: Tree[_Leaf_T]) -> _Return_T:
-        return self._transform_tree(tree)
-
-    def start(self, meta: ast.Meta, children):
+    def _flatten_children(
+        self, children: List[Union[ast.Statement, List[ast.Statement]]]
+    ) -> List[ast.Statement]:
         statements: List[ast.Statement] = []
         for child in children:
-            # decl_stmt returns a list: flatten it
+            # decl_stmt returns a list
             if isinstance(child, list):
                 for subchild in child:
                     statements.append(subchild)
                 continue
             statements.append(child)
+        return statements
 
+    def transform(self, tree: Tree[_Leaf_T]) -> _Return_T:
+        return self._transform_tree(tree)
+
+    def start(self, meta: ast.Meta, children):
+        statements = self._flatten_children(children)
         return ast.Module(body=statements, meta=meta)
+
+    def func_def_exit(self, tree: Tree, procedure: ast.Function) -> ast.Function:
+        self.pop_scope()
+        return procedure
+
+    def func_def(self, meta: ast.Meta, children) -> ast.Function:
+        name, params, suite, *_ = children
+        if not isinstance(params, list):
+            params = [params] if params else []
+        statements = self._flatten_children(suite)
+        return ast.Function(name=name, params=params, body=statements, meta=meta)
+
+    def func_def_enter(self, tree: Tree) -> Tree:
+        _, name, *_ = tree.children
+        assert isinstance(name, Token)
+        scope = self.child_lookup(name.value)
+        if self.callable_lookup(name.value) is None or scope is None:
+            raise CompilationError(
+                f"Usage of unknown identifier {name}",
+                name.line,
+                name.column,
+            )
+        self.push_scope(scope)
+        self.push_context(Context.CallableDecl)
+        return tree
+
+    def proc_def_exit(self, tree: Tree, procedure: ast.Procedure) -> ast.Procedure:
+        self.pop_scope()
+        return procedure
+
+    def proc_def(self, meta: ast.Meta, children) -> ast.Procedure:
+        name, params, suite, *_ = children
+        if not isinstance(params, list):
+            params = [params] if params else []
+        statements = self._flatten_children(suite)
+        return ast.Procedure(name=name, params=params, body=statements, meta=meta)
+
+    def proc_def_enter(self, tree: Tree) -> Tree:
+        name, *_ = tree.children
+        assert isinstance(name, Token)
+        scope = self.child_lookup(name.value)
+        if self.callable_lookup(name.value) is None or scope is None:
+            raise CompilationError(
+                f"Usage of unknown identifier {name}",
+                name.line,
+                name.column,
+            )
+        self.push_scope(scope)
+        self.push_context(Context.CallableDecl)
+        return tree
+
+    def param_list(self, meta: ast.Meta, assigns: List[ast.Param]) -> List[ast.Param]:
+        return assigns
+
+    def param_exit(self, tree: Tree, param: ast.Param) -> ast.Param:
+        ctx = self.pop_context()
+        if ctx != Context.Param:
+            raise CompilationError(
+                f"Expected {Context.Param} context but got {ctx}",
+                tree.meta.line,
+                tree.meta.column,
+            )
+        return param
+
+    def param(self, meta: ast.Meta, assign: List[ast.Assign]) -> ast.Param:
+        name = assign[0].targets[0]
+        return ast.Param(id=name.id, type=name.type)
+
+    def param_enter(self, tree: Tree) -> Tree:
+        self.push_context(Context.Param)
+        return tree
 
     def decl_stmt(self, meta: ast.Meta, assigns: List[ast.Assign]) -> List[ast.Assign]:
         if isinstance(assigns[0], ast.Assign):
@@ -181,6 +261,21 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
 
     def suite(self, meta: ast.Meta, children) -> ast.Body:
         return children
+
+    def suite_enter(self, tree: Tree) -> Tree:
+        if self.get_context() == Context.CallableDecl:
+            ctx = self.pop_context()
+            if ctx != Context.CallableDecl:
+                raise CompilationError(
+                    f"Expected {Context.CallableDecl} context but got {ctx}",
+                    tree.meta.line,
+                    tree.meta.column,
+                )
+        return tree
+
+    def return_stmt(self, meta: ast.Meta, children) -> ast.Return:
+        expr, *_ = children
+        return ast.Return(value=expr, meta=meta)
 
     def halt_stmt(self, meta: ast.Meta, children) -> ast.Halt:
         return ast.Halt(meta=meta)
@@ -253,7 +348,7 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         ctx = self.pop_context()
         if ctx != Context.SubscriptList:
             raise CompilationError(
-                f"Expected `SubscriptList` context but got {ctx}",
+                f"Expected {Context.SubscriptList} context but got {ctx}",
                 index.meta.line,
                 index.meta.column,
             )
@@ -278,7 +373,7 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         ctx = self.pop_context()
         if ctx != Context.Subscript:
             raise CompilationError(
-                f"Expected `Subscript` context but got {ctx}",
+                f"Expected {Context.Subscript} context but got {ctx}",
                 subscript.meta.line,
                 subscript.meta.column,
             )
@@ -296,7 +391,7 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         ctx = self.pop_context()
         if ctx != Context.Attribute:
             raise CompilationError(
-                f"Expected `Attribute` context but got {ctx}",
+                f"Expected {Context.Attribute} context but got {ctx}",
                 attribute.meta.line,
                 attribute.meta.column,
             )
@@ -331,30 +426,40 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
 
     def NAME(self, token: Token) -> Union[ast.Constant, ast.Name]:
         name = token.value
-        symbol = self.lookup(name)
 
-        # The lookup may return none, but we don't care if
-        # the symbol is an attribute.
+        # We don't care if a symbol exists for this name
+        # if this is an attribute
         if self.get_context() == Context.Attribute:
-            return ast.Name(
-                id=symbol.name if symbol else name,
-                type=symbol.type if symbol else None,
-            )
+            return ast.Name(id=name, type=None)
 
+        symbol = self.lookup(name)
+        # This name could be the name of the callable but even though
+        # we would be in its scope now, it could have a parameter or
+        # local variable of the same name. CallableDecl context is
+        # popped when we enter the body. Parameters push their own
+        # wrapping context so this condition won't be true for them.
+        if self.get_context() in [Context.CallableDecl]:
+            symbol = self.callable_lookup(name)
+
+        if symbol is not None:
+            return ast.Name(id=symbol.name, type=symbol.type)
+
+        # If it's not a variable, parameter, or identifier within
+        # a callable, it could be an IPL constant
+        try:
+            ipl_constant = ipl.Constant(name)
+            if ipl_constant:
+                return ast.Constant(value=ipl_constant)
+        except ValueError:
+            pass
+
+        symbol = self.callable_lookup(name)
         if symbol is None:
-            try:
-                # This unknown symbol may be an IPL constant
-                ipl_constant = ipl.Constant(name)
-                if ipl_constant:
-                    return ast.Constant(value=ipl_constant)
-            except ValueError:
-                pass
             raise CompilationError(
                 f"Usage of unknown identifier {name}",
                 token.line,
                 token.column,
             )
-
         return ast.Name(id=symbol.name, type=symbol.type)
 
     def __default__(self, data, children, meta) -> Tree[_Leaf_T]:
