@@ -33,7 +33,7 @@ def iter_parse_tree(lark_parse):
 @pytest.fixture()
 def symbol_table():
     def _symbol_table(content: str):
-        tree = parse(content)
+        tree = parse(content, cache=True)
         return create_symtable(tree)
 
     return _symbol_table
@@ -42,7 +42,7 @@ def symbol_table():
 @pytest.fixture()
 def to_ast(symbol_table):
     def _to_ast(content: str):
-        tree = parse(content)
+        tree = parse(content, cache=True)
         symtable = symbol_table(content)
         return create_ast(tree, symtable)
 

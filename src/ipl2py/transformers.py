@@ -167,12 +167,20 @@ class TreeToAstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         value = ast.Constant(value=self.default_value(name.type))
         return ast.Assign(targets=[name], value=value, meta=meta)
 
-    def suite(self, meta: ast.Meta, children) -> ast.Body:
-        return children
+    def for_stmt(self, meta: ast.Meta, children) -> ast.For:
+        target, start, end, suite, *_ = children
+        return ast.For(target=target, start=start, end=end, body=suite, meta=meta)
+
+    def while_stmt(self, meta: ast.Meta, children) -> ast.While:
+        test, suite, *_ = children
+        return ast.While(test=test, body=suite, meta=meta)
 
     def if_stmt(self, meta: ast.Meta, children) -> ast.If:
         test, if_suite, else_suite, *_ = children
         return ast.If(test=test, body=if_suite, orelse=else_suite, meta=meta)
+
+    def suite(self, meta: ast.Meta, children) -> ast.Body:
+        return children
 
     def halt_stmt(self, meta: ast.Meta, children) -> ast.Halt:
         return ast.Halt(meta=meta)

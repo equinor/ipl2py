@@ -636,3 +636,70 @@ ENDIF
 
     assert len(if_.body) == 1 and isinstance(if_.body[0], ast.Halt)
     assert if_.orelse is None
+
+
+def test_global_while(to_ast):
+    tree = to_ast(
+        """
+Bool b = TRUE
+Int a
+WHILE b DO
+    HALT
+    HALT
+ENDWHILE
+        """
+    )
+    while_ = tree.body[2]
+    assert isinstance(while_, ast.While)
+    assert while_.test == ast.Name(id="b", type=ipl.Type.BOOL)
+    body = while_.body
+    assert isinstance(body[0], ast.Halt)
+    assert isinstance(body[1], ast.Halt)
+
+
+@pytest.mark.parametrize("direction", ["TO", "DOWNTO"])
+def test_global_for(to_ast, direction):
+    tree = to_ast(
+        f"""
+Int a
+FOR a FROM 1 {direction} 10 DO
+    HALT
+ENDFOR
+        """
+    )
+    for_ = tree.body[1]
+    assert isinstance(for_, ast.For)
+    assert for_.target == tree.body[0].targets[0]
+    assert for_.start == ast.Constant(value=1)
+    assert for_.end == ast.Constant(value=10)
+    assert isinstance(for_.body[0], ast.Halt)
+
+
+def test_global_nested_for(to_ast):
+    tree = to_ast(
+        """
+Int i, j, k
+FOR i FROM 1 TO 10 DO
+    FOR j FROM 10 DOWNTO 1 DO
+        FOR k FROM 1 TO 2 DO
+            HALT
+        ENDFOR
+    ENDFOR
+ENDFOR
+        """
+    )
+    for_i = tree.body[3]
+    assert isinstance(for_i, ast.For)
+    assert for_i.target == tree.body[0].targets[0]
+    assert for_i.start == ast.Constant(value=1)
+    assert for_i.end == ast.Constant(value=10)
+    for_j = for_i.body[0]
+    assert isinstance(for_j, ast.For)
+    assert for_j.target == tree.body[1].targets[0]
+    assert for_j.start == ast.Constant(value=10)
+    assert for_j.end == ast.Constant(value=1)
+    for_k = for_j.body[0]
+    assert isinstance(for_k, ast.For)
+    assert for_k.target == tree.body[2].targets[0]
+    assert for_k.start == ast.Constant(value=1)
+    assert for_k.end == ast.Constant(value=2)
