@@ -9,18 +9,18 @@ from .asserts import assert_comments
 
 
 def test_parse_can_parse_direct_ipl():
-    tree = parse("a")
+    tree = parse("a", cache=True)
     assert tree == Tree("start", [Token("NAME", "a")])
 
 
 def test_parse_can_parse_a_comment():
-    tree = parse("// a")
+    tree = parse("// a", cache=True)
     assert tree == Tree("start", [])
 
 
 def test_parse_raises_on_invalid_ipl():
     with pytest.raises(UnexpectedToken):
-        parse("1a")
+        parse("1a", cache=True)
 
 
 def test_parse_collects_comments_by_default():
@@ -29,7 +29,8 @@ def test_parse_collects_comments_by_default():
         """
 // 2
 // 3
-        """
+        """,
+        cache=True,
     )
     assert_comments(
         tree, header_comments=[(2, Token("COMMENT", "2")), (3, Token("COMMENT", "3"))]
@@ -43,7 +44,8 @@ Int a
 x // 3
 // 4
 // 5
-        """
+        """,
+        cache=True,
     )
     assert_comments(
         tree, footer_comments=[(4, Token("COMMENT", "4")), (5, Token("COMMENT", "5"))]
@@ -59,6 +61,7 @@ Int b // b c d
 // eof
         """,
         include_comments=False,
+        cache=True,
     )
     assert tree.meta.header_comments == []
     assert tree.meta.inline_comments == []
@@ -76,7 +79,7 @@ IF TRUE THEN // 3
 ENDIF // 8
 // 9
     """
-    tree = parse(content)
+    tree = parse(content, cache=True)
     assert_comments(
         tree,
         header_comments=[(2, Token("COMMENT", "2"))],
@@ -118,7 +121,7 @@ ELSE // 8
 ENDIF // 11
 // 12
     """
-    tree = parse(content)
+    tree = parse(content, cache=True)
     assert_comments(
         tree,
         header_comments=[(2, Token("COMMENT", "2"))],
@@ -218,7 +221,7 @@ ENDFUNCTION // 9
     ],
 )
 def test_assign_comments_compound_statements(stmt_type, content):
-    tree = parse(content)
+    tree = parse(content, cache=True)
     assert_comments(
         tree,
         header_comments=[(2, Token("COMMENT", "2"))],
@@ -267,7 +270,7 @@ IF TRUE THEN // 3
 ENDIF // 11
 // 12
     """
-    tree = parse(content)
+    tree = parse(content, cache=True)
     assert_comments(
         tree,
         header_comments=[(2, Token("COMMENT", "2"))],
@@ -315,53 +318,53 @@ ENDIF // 11
 
 
 def test_int_token_transform():
-    tree = parse("1")
+    tree = parse("1", cache=True)
     assert tree.children[0] == Token("INT", 1)
-    tree = parse("-1234")
+    tree = parse("-1234", cache=True)
     assert tree.children[0] == Token("INT", -1234)
-    tree = parse("-0")
+    tree = parse("-0", cache=True)
     assert tree.children[0] == Token("INT", 0)
 
 
 def test_float_token_transform():
-    tree = parse("3.14")
+    tree = parse("3.14", cache=True)
     assert tree.children[0] == Token("FLOAT", 3.14)
-    tree = parse("-0.123")
+    tree = parse("-0.123", cache=True)
     assert tree.children[0] == Token("FLOAT", -0.123)
-    tree = parse("0.0")
+    tree = parse("0.0", cache=True)
     assert tree.children[0] == Token("FLOAT", 0.0)
 
 
 def test_bool_token_transform():
-    tree = parse("TRUE")
+    tree = parse("TRUE", cache=True)
     assert tree.children[0] == Token("BOOL", True)
-    tree = parse("FALSE")
+    tree = parse("FALSE", cache=True)
     assert tree.children[0] == Token("BOOL", False)
 
 
 def test_string_token_transform():
-    tree = parse('"a"')
+    tree = parse('"a"', cache=True)
     assert tree.children[0] == Token("STRING", "a")
-    tree = parse('"I\'m"')
+    tree = parse('"I\'m"', cache=True)
     assert tree.children[0] == Token("STRING", "I'm")
-    tree = parse('"\\"Hello World\\""')
+    tree = parse('"\\"Hello World\\""', cache=True)
     assert tree.children[0] == Token("STRING", '\\"Hello World\\"')
 
 
 def test_type_token_transform():
     for ipl_type in [t for t in Type]:
-        tree = parse(f"{ipl_type.value} a")
+        tree = parse(f"{ipl_type.value} a", cache=True)
         assert tree.children[0].children[0] == Token("TYPE", ipl_type)
         content = f"""
     {ipl_type.value} FUNCTION f()
         TRUE
     ENDFUNCTION
             """
-        tree = parse(content)
+        tree = parse(content, cache=True)
         assert tree.children[0].children[0] == Token("TYPE", ipl_type)
 
 
 def test_sysdef_token_transform():
     for sysdef in [s for s in SysDef]:
-        tree = parse(sysdef.value)
+        tree = parse(sysdef.value, cache=True)
         assert tree.children[0] == Token("SYSDEF", sysdef)

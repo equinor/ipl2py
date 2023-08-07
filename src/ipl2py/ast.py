@@ -206,6 +206,11 @@ class BoolOp(_Base):
 
 
 @dataclass
+class Halt(_Base):
+    pass
+
+
+@dataclass
 class If(_Base):
     test: TestType
     body: Body
@@ -213,8 +218,17 @@ class If(_Base):
 
 
 @dataclass
-class Halt(_Base):
-    pass
+class While(_Base):
+    test: TestType
+    body: Body
+
+
+@dataclass
+class For(_Base):
+    target: Name
+    start: Union[Name, Constant]
+    end: Union[Name, Constant]
+    body: Body
 
 
 @dataclass

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 LexerCallback = Callable[[Token], Union[Token, None]]
 
 
-def parse(content: str, include_comments=True) -> Tree:
+def parse(content: str, include_comments=True, cache=False) -> Tree:
     """Parse IPL code into a parse tree.
 
     :param content: The IPL source file as a string.
@@ -45,6 +45,7 @@ def parse(content: str, include_comments=True) -> Tree:
         parser="lalr",
         propagate_positions=True,
         lexer_callbacks=callbacks,
+        cache=cache,
     )
 
     logger.debug("Parsing content=\n%s", content)
