@@ -2,8 +2,9 @@ import pytest
 from lark import Lark
 
 from ipl2py import parse
-from ipl2py.compiler import create_ast, create_symtable
+from ipl2py.ast import create_ast
 from ipl2py.grammar import GRAMMAR
+from ipl2py.symtable import create_symtable
 
 # Gives assert introspection to helper functions
 pytest.register_assert_rewrite("tests.asserts")

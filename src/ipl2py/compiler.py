@@ -2,22 +2,11 @@ import logging
 
 from lark import Tree
 
-from .parser import parse
-from .symtable import SymbolTable, SymbolTableType
-from .transformers import AstTransformer
-from .visitors import SymbolTableVisitor
+from ipl2py.ast import create_ast
+from ipl2py.parser import parse
+from ipl2py.symtable import create_symtable
 
 logger = logging.getLogger(__name__)
-
-
-def create_symtable(tree: Tree) -> SymbolTable:
-    symtable = SymbolTable("top", SymbolTableType.MODULE)
-    SymbolTableVisitor(symtable).visit_topdown(tree)
-    return symtable
-
-
-def create_ast(tree: Tree, symtable: SymbolTable):
-    return AstTransformer(symtable).transform(tree)
 
 
 def compile(

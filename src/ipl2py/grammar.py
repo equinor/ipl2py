@@ -1,4 +1,4 @@
-from .ipl import SysDef, Type
+from ipl2py.ipl import SysDef, Type
 
 _sysdefs = [f'"{sd.value[1:]}"' for sd in SysDef]
 
