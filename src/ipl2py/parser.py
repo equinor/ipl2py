@@ -1,7 +1,6 @@
 import logging
 from typing import Callable, Dict, List, Mapping, Tuple, Union
 
-import lark
 from lark import Lark, Token, Tree
 from lark.exceptions import ParseError, UnexpectedInput, UnexpectedToken
 from lark.visitors import Visitor_Recursive
@@ -36,12 +35,13 @@ class CommentVisitor(Visitor_Recursive):
     FOOTER_COMMENTS = "footer_comments"
     INVALID = -1
 
-    def __init__(self, comments: List[Token]):
+    def __init__(self, comments: List[Token]) -> None:
         super().__init__()
         self._mapped_comments = self._map_line_to_comment(comments)
-        self._prev_end_line = 0
 
+        self._prev_end_line = 0
         self._compound_end_line = 0
+
         self._is_if_else = False
 
     def _add_comments_attrs(self, node: Tree):
@@ -54,8 +54,8 @@ class CommentVisitor(Visitor_Recursive):
 
         def _by_line_number(comment: Token) -> int:
             # The line attribute is technically optional but should
-            # always be there as positions are propagated if comments
-            # are preserved.
+            # always be there in our usage as we use the Lark
+            # propgate_positions option.
             line = getattr(comment, "line", 0)
             if line == 0:
                 logger.warning(
@@ -68,7 +68,6 @@ class CommentVisitor(Visitor_Recursive):
         comments.sort(key=_by_line_number)
         # Note that 0 is not a valid line number so it won't be placed into a node.
         mapping: Mapping[int, Token] = {c.line if c.line else 0: c for c in comments}
-        logger.debug("Mapped %d comments: %s", len(mapping), mapping)
         return mapping
 
     def _get_comments(self, from_line: int, to_line: int) -> List[Tuple[int, Token]]:
@@ -77,10 +76,9 @@ class CommentVisitor(Visitor_Recursive):
             for key, val in self._mapped_comments.items()
             if from_line <= (val.line if val.line else 0) < to_line
         ]
-        logger.debug("Comments from line %d to %d: %s", from_line, to_line, comments)
         return comments
 
-    def _get_node_bounds(self, node: Union[Tree, lark.Tree, Token]) -> Tuple[int, int]:
+    def _get_node_bounds(self, node: Union[Tree, Token]) -> Tuple[int, int]:
         """Gets the start and end line of a tree in the originl source."""
         if isinstance(node, Tree):
             try:
@@ -89,7 +87,6 @@ class CommentVisitor(Visitor_Recursive):
             except AttributeError:
                 assert not node.children
         else:
-            # Tokens have optional line numbers as well.
             line = getattr(node, "line", self.INVALID)
             end_line = getattr(node, "end_line", self.INVALID)
         return line, end_line
@@ -98,13 +95,6 @@ class CommentVisitor(Visitor_Recursive):
         self, node: Tree, attr: str, line: int, end_line: int
     ) -> None:
         comments = self._get_comments(line, end_line)
-        logger.debug(
-            "Assign comments: node=%s, attr=%s, line=%d, end_line=%d",
-            node,
-            attr,
-            line,
-            end_line,
-        )
         setattr(node.meta, attr, comments)
 
     def _set_prev_end_line(self, end_line: int) -> None:
@@ -117,9 +107,9 @@ class CommentVisitor(Visitor_Recursive):
         if len(self._mapped_comments) > 0:
             last_comment_end_line = list(self._mapped_comments)[-1]
 
+        # This only occurs when a source file is empty.
         # Without children the meta values aren't set, even with
         # `propagate_positions`, but there could still be comments.
-        # Same comment-only edge case.
         if not node.children:
             setattr(node.meta, "line", 1)
             setattr(node.meta, "end_line", last_comment_end_line)
@@ -138,7 +128,7 @@ class CommentVisitor(Visitor_Recursive):
         self._assign_comments_to(node, self.HEADER_COMMENTS, self._prev_end_line, line)
         # The last child could be a token so we need some special handling.
         # Note that tokens do not have a meta attribute so it will be grouped
-        # into the start footer.
+        # into the module footer.
         _, last_child_end_line = self._get_node_bounds(node.children[-1])
         if last_child_end_line == self.INVALID:
             logger.warning(
@@ -177,7 +167,7 @@ class CommentVisitor(Visitor_Recursive):
         line, end_line = self._get_node_bounds(node)
         self._assign_comments_to(node, self.HEADER_COMMENTS, self._prev_end_line, line)
 
-        # Node is on a single line so it's in an inline comment
+        # Node is on a single line so it's an inline comment
         if line == end_line:
             self._assign_comments_to(node, self.INLINE_COMMENTS, line, line + 1)
             self._set_prev_end_line(line)
@@ -191,7 +181,8 @@ class CommentVisitor(Visitor_Recursive):
             "func_def",
         ):
             self._compound_end_line = end_line
-            # Flag that we have two suites to work with
+            # Flag that we have two suites to work with, as distinct from
+            # just an IF statement.
             if node.data == "if_stmt" and node.children[-1] is not None:
                 self._is_if_else = True
 
@@ -204,10 +195,11 @@ class CommentVisitor(Visitor_Recursive):
 def parse(content: str, include_comments=True, cache=False) -> Tree:
     """Parse IPL code into a parse tree.
 
-    :param content: The IPL source file as a string.
+    :param content: The IPL source file as a string. True by default.
     :param include_comments: Include comments in the tree.
+    :param cache: Cache the parser generated by Lark. False by default.
     """
-    callbacks: Dict[str, LexerCallback] = {
+    lexer_callbacks: Dict[str, LexerCallback] = {
         "BOOL": lambda token: token.update(
             value=False if token.value == "FALSE" else True
         ),
@@ -226,22 +218,22 @@ def parse(content: str, include_comments=True, cache=False) -> Tree:
             token = token.update(value=token.value[2:].strip())
             comments.append(token)
 
-        callbacks["COMMENT"] = _comments_callback
+        lexer_callbacks["COMMENT"] = _comments_callback
 
     parser = Lark(
         GRAMMAR,
         parser="lalr",
         propagate_positions=True,
-        lexer_callbacks=callbacks,
+        lexer_callbacks=lexer_callbacks,
         cache=cache,
     )
-
-    logger.debug("Parsing content=\n%s", content)
     try:
         tree = parser.parse(content + "\n")
     except (ParseError, UnexpectedInput, UnexpectedToken):
         logger.exception("Failed to parse IPL")
         raise
 
+    # Always call this even if there aren't comments so that
+    # the comment attributes are added.
     CommentVisitor(comments).visit_topdown(tree)
     return tree

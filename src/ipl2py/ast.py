@@ -186,7 +186,6 @@ class NotEq:
     pass
 
 
-# IPL's compare is left-recursive.
 @dataclass
 class Compare(_Base):
     left: ExprType
@@ -274,11 +273,11 @@ _Leaf_T = TypeVar("_Leaf_T")
 
 
 class Context(Enum):
-    Attribute = auto()
-    Subscript = auto()
-    SubscriptList = auto()
-    FunctionDecl = auto()
-    Param = auto()
+    ATTRIBUTE = auto()
+    SUBSCRIPT = auto()
+    SUBSCRIPT_LIST = auto()
+    FUNCTION_DECL = auto()
+    PARAM = auto()
 
 
 class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
@@ -419,7 +418,7 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
                 name.column,
             )
         self.push_scope(scope)
-        self.push_context(Context.FunctionDecl)
+        self.push_context(Context.FUNCTION_DECL)
         return tree
 
     def proc_def_exit(self, tree: Tree, procedure: Function) -> Function:
@@ -444,7 +443,7 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
                 name.column,
             )
         self.push_scope(scope)
-        self.push_context(Context.FunctionDecl)
+        self.push_context(Context.FUNCTION_DECL)
         return tree
 
     def param_list(self, meta: Meta, assigns: List[Param]) -> List[Param]:
@@ -452,9 +451,9 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
 
     def param_exit(self, tree: Tree, param: Param) -> Param:
         ctx = self.pop_context()
-        if ctx != Context.Param:
+        if ctx != Context.PARAM:
             raise CompilationError(
-                f"Expected {Context.Param} context but got {ctx}",
+                f"Expected {Context.PARAM} context but got {ctx}",
                 tree.meta.line,
                 tree.meta.column,
             )
@@ -465,7 +464,7 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         return Param(id=name.id, type=name.type)
 
     def param_enter(self, tree: Tree) -> Tree:
-        self.push_context(Context.Param)
+        self.push_context(Context.PARAM)
         return tree
 
     def decl_stmt(self, meta: Meta, assigns: List[Assign]) -> List[Assign]:
@@ -517,11 +516,11 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         return children
 
     def suite_enter(self, tree: Tree) -> Tree:
-        if self.get_context() == Context.FunctionDecl:
+        if self.get_context() == Context.FUNCTION_DECL:
             ctx = self.pop_context()
-            if ctx != Context.FunctionDecl:
+            if ctx != Context.FUNCTION_DECL:
                 raise CompilationError(
-                    f"Expected {Context.FunctionDecl} context but got {ctx}",
+                    f"Expected {Context.FUNCTION_DECL} context but got {ctx}",
                     tree.meta.line,
                     tree.meta.column,
                 )
@@ -607,9 +606,9 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
 
     def subscript_list_exit(self, tree: Tree, index: IndexType) -> IndexType:
         ctx = self.pop_context()
-        if ctx != Context.SubscriptList:
+        if ctx != Context.SUBSCRIPT_LIST:
             raise CompilationError(
-                f"Expected {Context.SubscriptList} context but got {ctx}",
+                f"Expected {Context.SUBSCRIPT_LIST} context but got {ctx}",
                 index.meta.line,
                 index.meta.column,
             )
@@ -627,14 +626,14 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         return Index1D(i=i, meta=meta)
 
     def subscript_list_enter(self, tree) -> Tree:
-        self.push_context(Context.SubscriptList)
+        self.push_context(Context.SUBSCRIPT_LIST)
         return tree
 
     def subscript_exit(self, tree: Tree, subscript: Subscript) -> Subscript:
         ctx = self.pop_context()
-        if ctx != Context.Subscript:
+        if ctx != Context.SUBSCRIPT:
             raise CompilationError(
-                f"Expected {Context.Subscript} context but got {ctx}",
+                f"Expected {Context.SUBSCRIPT} context but got {ctx}",
                 subscript.meta.line,
                 subscript.meta.column,
             )
@@ -645,14 +644,14 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         return Subscript(value=value, index=index, meta=meta)
 
     def subscript_enter(self, tree) -> Tree:
-        self.push_context(Context.Subscript)
+        self.push_context(Context.SUBSCRIPT)
         return tree
 
     def attribute_exit(self, tree: Tree, attribute: Attribute) -> Attribute:
         ctx = self.pop_context()
-        if ctx != Context.Attribute:
+        if ctx != Context.ATTRIBUTE:
             raise CompilationError(
-                f"Expected {Context.Attribute} context but got {ctx}",
+                f"Expected {Context.ATTRIBUTE} context but got {ctx}",
                 attribute.meta.line,
                 attribute.meta.column,
             )
@@ -660,11 +659,10 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
 
     def attribute(self, meta: Meta, children) -> Attribute:
         value, attr, *_ = children
-        # attr should always return as a Name with type None
         return Attribute(value=value, attr=attr.id, meta=meta)
 
     def attribute_enter(self, tree) -> Tree:
-        self.push_context(Context.Attribute)
+        self.push_context(Context.ATTRIBUTE)
         return tree
 
     def TYPE(self, token: Token) -> _DiscardType:
@@ -690,7 +688,7 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
 
         # We don't care if a symbol exists for this name
         # if this is an attribute
-        if self.get_context() == Context.Attribute:
+        if self.get_context() == Context.ATTRIBUTE:
             return Name(id=name, type=None)
 
         symbol = self.lookup(name)
@@ -699,7 +697,7 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         # local variable of the same name. FunctionDecl context is
         # popped when we enter the body. Parameters push their own
         # wrapping context so this condition won't be true for them.
-        if self.get_context() == Context.FunctionDecl:
+        if self.get_context() == Context.FUNCTION_DECL:
             symbol = self.callable_lookup(name)
 
         if symbol is not None:
@@ -727,5 +725,13 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         return Tree(data, children, meta)
 
 
-def create_ast(tree: Tree, symtable: SymbolTable):
-    return AstTransformer(symtable).transform(tree)
+def create_ast(tree: Tree, symtable: SymbolTable) -> Module:
+    """Transforms a parse tree into an AST, with the help of a symbol
+    table.
+
+    :param tree: The parse tree as created by ``ipl2py.parse``.
+    :param symtable: The symbol table generated from the provided
+        parse tree.
+    """
+    module: Module = AstTransformer(symtable).transform(tree)
+    return module
