@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 def read_file(infile: str) -> str:
-    logger.info("Opening %s", infile)
     try:
         with open(infile, encoding="utf-8") as fin:
             content = fin.read()
@@ -95,7 +94,7 @@ def parse_args() -> Namespace:
     return args
 
 
-def main():
+def main() -> None:
     args = parse_args()
     logging.basicConfig(level=args.loglevel)
 

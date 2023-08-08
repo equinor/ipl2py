@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Generic, List, Mapping, Optional, TypeVar, Union
+from typing import Any, Generic, List, Literal, Mapping, Optional, TypeVar, Union
 
+import lark
 import numpy as np
 import yaml
 from lark import Discard, Token, Tree
@@ -9,7 +10,10 @@ from lark.visitors import _DiscardType
 
 import ipl2py.ipl as ipl
 from ipl2py.exceptions import CompilationError
-from ipl2py.symtable import ScopeStackBase, SymbolTable
+from ipl2py.symtable import ScopeStack, SymbolTable
+
+PyPrimitives = Union[bool, int, float, str, None]
+Primitives = Union[ipl.Constant, ipl.SysDef, Literal[ipl.Type.POINT], PyPrimitives]
 
 ArrayType = Union["Array1D", "Array2D", "Array3D"]
 IndexType = Union["Index1D", "Index2D", "Index3D"]
@@ -20,15 +24,25 @@ CompareOpsType = Union["Lt", "LtE", "Gt", "GtE", "Eq", "NotEq"]
 BoolOpsType = Union["And", "Or"]
 
 ExprType = Union[
-    ArrayType, IndexType, "BinOp", "Compare", "Constant", "Name", "UnaryOp"
+    ArrayType,
+    "Attribute",
+    "BinOp",
+    "Call",
+    "Compare",
+    "Constant",
+    "Name",
+    "Subscript",
+    "UnaryOp",
 ]
 TestType = Union["BoolOp", ExprType]
 
-Statement = Union["Assign", "If", "While", "For", "Halt", "Function"]
+Statement = Union[
+    "Assign", "Call", ExprType, "For", "Function", "Halt", "If", "Return", "While"
+]
 Body = List[Statement]
 
 
-@dataclass
+@dataclass(repr=False)
 class Meta:
     line: int
     column: int
@@ -40,9 +54,6 @@ class Meta:
     inline_comments: List[str]
     footer_comments: List[str]
 
-    def __repr__(self) -> str:
-        return ""
-
 
 @dataclass
 class _Base:
@@ -51,13 +62,13 @@ class _Base:
 
 @dataclass
 class Constant:
-    value: Union[bool, int, float, str, ipl.Constant, ipl.SysDef, None]
+    value: Primitives
 
 
 @dataclass
 class Name:
     id: str
-    type: Union[None, ipl.Type]
+    type: Optional[ipl.Type]
 
 
 @dataclass
@@ -242,8 +253,8 @@ class While(_Base):
 @dataclass
 class For(_Base):
     target: Name
-    start: Union[Name, Constant]
-    end: Union[Name, Constant]
+    start: ExprType
+    end: ExprType
     body: Body
 
 
@@ -267,7 +278,6 @@ class Module(_Base):
         return yaml.dump(self)
 
 
-ContextStack = List["Context"]
 _Return_T = TypeVar("_Return_T")
 _Leaf_T = TypeVar("_Leaf_T")
 
@@ -280,28 +290,28 @@ class Context(Enum):
     PARAM = auto()
 
 
-class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
+class AstTransformer(ScopeStack, Generic[_Leaf_T, _Return_T]):
     def __init__(self, base: SymbolTable) -> None:
         super().__init__(base)
-        self._context_stack: ContextStack = []
+        self._context_stack: List[Context] = []
 
-    def get_context(self) -> Union[None, Context]:
+    def get_context(self) -> Optional[Context]:
         if len(self._context_stack) == 0:
             return None
         return self._context_stack[-1]
 
-    def push_context(self, ctx: Context) -> ContextStack:
+    def push_context(self, ctx: Context) -> List[Context]:
         self._context_stack.append(ctx)
         return self._context_stack
 
-    def pop_context(self) -> Union[None, Context]:
+    def pop_context(self) -> Optional[Context]:
         if len(self._context_stack) == 0:
             return None
         ctx = self._context_stack[-1]
         self._context_stack = self._context_stack[:-1]
         return ctx
 
-    def default_value(self, type_: ipl.Type) -> Union[int, float, bool, str, None]:
+    def default_value(self, type_: ipl.Type) -> PyPrimitives:
         defaults: Mapping[str, Any] = {
             "INT": 0,
             "FLOAT": 0.0,
@@ -310,9 +320,12 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         }
         return defaults.get(type_.name)
 
-    def _meta(self, meta: Meta) -> Meta:
+    def _meta(self, meta: lark.tree.Meta) -> Meta:
         """Ensure the opaque Lark Meta type isn't used. If a module is
         empty some attributes are not created."""
+        assert hasattr(meta, "header_comments")
+        assert hasattr(meta, "inline_comments")
+        assert hasattr(meta, "footer_comments")
         return Meta(
             line=meta.line,
             column=meta.column if hasattr(meta, "column") else 0,
@@ -325,14 +338,13 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
             footer_comments=meta.footer_comments,
         )
 
-    def _call_userfunc_exit(self, tree, node):
+    def _call_userfunc_exit(self, tree: Tree, node):
         try:
             return getattr(self, f"{tree.data}_exit")(tree, node)
         except AttributeError:
             return node
 
-    def _call_userfunc(self, tree, new_children=None):
-        # Assumes tree is already transformed
+    def _call_userfunc(self, tree: Tree, new_children=None):
         children = new_children if new_children is not None else tree.children
         try:
             meta = self._meta(tree.meta)
@@ -346,7 +358,7 @@ class AstTransformer(ScopeStackBase, Generic[_Leaf_T, _Return_T]):
         except AttributeError:
             return tree
 
-    def _call_userfunc_token(self, token) -> Union[Constant, Name]:
+    def _call_userfunc_token(self, token: Token) -> Union[Constant, Name]:
         try:
             return getattr(self, token.type)(token)
         except AttributeError:
