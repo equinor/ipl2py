@@ -28,6 +28,7 @@ dynamic = ["version"]
 dependencies = [
     "lark",
     "numpy",
+    "pyyaml",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +45,7 @@ dev = [
     "sphinx",
     "sphinx-argparse",
     "sphinx-copybutton",
+    "types-pyyaml",
 ]
 
 [project.scripts]

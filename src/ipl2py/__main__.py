@@ -1,9 +1,9 @@
 import logging
 from argparse import ArgumentParser, Namespace
 
-from ipl2py import __version__, compile
-
-from .utils import get_test_tree
+from ipl2py import __version__
+from ipl2py.compiler import compile
+from ipl2py.utils import get_test_tree
 
 logger = logging.getLogger(__name__)
 
