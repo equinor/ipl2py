@@ -7,13 +7,13 @@ from typing import Dict, List, Union
 from lark import Token, Tree
 from lark.visitors import Visitor_Recursive
 
+import ipl2py.ipl as ipl
 from ipl2py.exceptions import CompilationError, SymbolCollisionError
-from ipl2py.ipl import Type
 
 logger = logging.getLogger(__name__)
 
-ChildSymbolTable = Union["ProcedureSymbolTable", "FunctionSymbolTable"]
-SymbolTableNode = Union["SymbolTable", ChildSymbolTable]
+CallableSymbolTable = Union["ProcedureSymbolTable", "FunctionSymbolTable"]
+SymbolTableNode = Union["SymbolTable", CallableSymbolTable]
 ScopeStack = List[SymbolTableNode]
 
 
@@ -32,7 +32,7 @@ class Symbol:
     or procedure it is callable."""
 
     name: str
-    type: Union[None, Type]  # None exception for procedure callable type
+    type: Union[None, ipl.Type]  # None exception for procedure callable type
     is_referenced: bool = False
     is_parameter: bool = False
     is_global: bool = False
@@ -96,16 +96,16 @@ class SymbolTableBase(ABC):
 
 
 class SymbolTable(SymbolTableBase):
-    def __init__(self, name: str, type: SymbolTableType) -> None:
-        super().__init__(name, type)
-        self.children: Dict[str, ChildSymbolTable] = {}
+    def __init__(self, name: str) -> None:
+        super().__init__(name, SymbolTableType.MODULE)
+        self.children: Dict[str, SymbolTableNode] = {}
 
     def lookup(self, name: str) -> Union[None, Symbol]:
         symbol = self.symbols.get(name)
-        if not symbol:
+        if symbol is None:
             return None
-        # This could have been set true from some nested scope should
-        # always be false here.
+        # This could have been set true from some nested scope but
+        # should always be false here.
         symbol.is_free = False
         return symbol
 
@@ -120,8 +120,7 @@ class SymbolTable(SymbolTableBase):
     def callable_identifiers(self) -> List[str]:
         return list(self.callables.keys())
 
-    def insert_child(self, child: ChildSymbolTable) -> None:
-        """A child can only be a procedure/function"""
+    def insert_child(self, child: SymbolTableNode) -> None:
         if child.name in self.children:
             raise SymbolCollisionError(
                 f"Symbol table {child.name} already declared in table {self.name}"
@@ -133,7 +132,7 @@ class SymbolTable(SymbolTableBase):
         self.insert_callable(symbol)
         self.children[child.name] = child
 
-    def get_child(self, name: str) -> Union[None, ChildSymbolTable]:
+    def get_child(self, name: str) -> Union[None, SymbolTableNode]:
         return self.children.get(name)
 
     @property
@@ -173,7 +172,7 @@ class ProcedureSymbolTable(SymbolTableBase):
         symbol = self.symbols.get(name)
         if symbol is None:
             symbol = self.parent.lookup(name)
-            if not symbol:
+            if symbol is None:
                 return None
             symbol.is_free = True
         return symbol
@@ -221,7 +220,7 @@ class ProcedureSymbolTable(SymbolTableBase):
 
 
 class FunctionSymbolTable(ProcedureSymbolTable):
-    def __init__(self, name: str, parent: SymbolTable, return_type: Type) -> None:
+    def __init__(self, name: str, parent: SymbolTable, return_type: ipl.Type) -> None:
         super().__init__(name, parent)
         self.type = SymbolTableType.FUNCTION
         self.return_type = return_type
@@ -303,38 +302,39 @@ class SymbolTableVisitor(ScopeStackBase, Visitor_Recursive):
     def __init__(self, base: SymbolTable) -> None:
         super().__init__(base)
 
-    def __default_exit__(self, tree: Tree) -> Tree:
-        return tree
+    def __default_exit__(self, node: Tree) -> Tree:
+        return node
 
-    def _call_exit_userfunc(self, tree: Tree) -> Tree:
-        return getattr(self, f"{tree.data}_exit", self.__default_exit__)(tree)
+    def _call_exit_userfunc(self, node: Tree) -> Tree:
+        return getattr(self, f"{node.data}_exit", self.__default_exit__)(node)
 
-    def visit_topdown(self, tree: Tree) -> Tree:
+    def visit_topdown(self, node: Tree) -> Tree:
         """Overrides the default visit_topdown visitor function to add an additional
         exit call after all child trees have been visited."""
-        self._call_userfunc(tree)  # Inherited from derived class
-        for child in tree.children:
+        self._call_userfunc(node)  # Inherited from derived class
+        for child in node.children:
             if isinstance(child, Tree):
                 self.visit_topdown(child)
-        self._call_exit_userfunc(tree)
-        return tree
+        self._call_exit_userfunc(node)
+        return node
 
     def _get_lhs_name(self, node: Tree) -> Token:
         """Recursively find the name of the variable being subscripted or
         having its attribute accessed. If given a tree representing something
         like `a.length[b[0,1,2].something].size = 1` this will return
         `Token("NAME", "a")`"""
-        if isinstance(node.children[0], Token):
-            return node.children[0]
-        return self._get_lhs_name(node.children[0])  # type: ignore
+        child, *_ = node.children
+        if isinstance(child, Token):
+            return child
+        return self._get_lhs_name(child)
 
     def _create_symbol(
-        self, token: Token, type_: Type, is_assigned=False, is_parameter=False
+        self, token: Token, type: ipl.Type, is_assigned=False, is_parameter=False
     ) -> None:
         assert token.type == "NAME"
         symbol = Symbol(
             token.value,
-            type_,
+            type,
             is_assigned=is_assigned,
             is_parameter=is_parameter,
         )
@@ -348,7 +348,7 @@ class SymbolTableVisitor(ScopeStackBase, Visitor_Recursive):
                 continue
             name = child.value
             symbol = self.get_scope().lookup(name)
-            if not symbol:
+            if symbol is None:
                 raise CompilationError(
                     f"Reference to undeclared identifier {name}",
                     child.line,
@@ -357,10 +357,14 @@ class SymbolTableVisitor(ScopeStackBase, Visitor_Recursive):
             symbol.is_referenced = True
 
     def func_def(self, node: Tree) -> None:
-        type = node.children[0].value  # type: ignore
-        identifier = node.children[1].value  # type: ignore
+        type_token, id_token, *_ = node.children
+        assert isinstance(type_token, Token)
+        assert isinstance(id_token, Token)
+        type = type_token.value
+        assert isinstance(type, ipl.Type)
+
         root_table = self.get_global()
-        function = FunctionSymbolTable(identifier, root_table, type)
+        function = FunctionSymbolTable(id_token.value, root_table, type)
         root_table.insert_child(function)
         self.push_scope(function)
 
@@ -368,9 +372,11 @@ class SymbolTableVisitor(ScopeStackBase, Visitor_Recursive):
         self.pop_scope()
 
     def proc_def(self, node: Tree) -> None:
-        identifier = node.children[0].value  # type: ignore
+        identifier, *_ = node.children
+        assert isinstance(identifier, Token)
+
         root_table = self.get_global()
-        procedure = ProcedureSymbolTable(identifier, root_table)
+        procedure = ProcedureSymbolTable(identifier.value, root_table)
         root_table.insert_child(procedure)
         self.push_scope(procedure)
 
@@ -378,60 +384,69 @@ class SymbolTableVisitor(ScopeStackBase, Visitor_Recursive):
         self.pop_scope()
 
     def param(self, node: Tree) -> None:
-        type = node.children[0].value  # type: ignore
+        token, *_ = node.children
+        assert isinstance(token, Token)
+        type = token.value
+        assert isinstance(type, ipl.Type)
         self._handle_decl(node.children[1], type, is_parameter=True)
 
-    def _handle_decl(self, node: Tree, type_: Type, is_parameter=False) -> None:
+    def _handle_decl(self, node: Tree, type: ipl.Type, is_parameter=False) -> None:
+        token, *_ = node.children
+        assert isinstance(token, Token)
+
+        # IPL allows assignment syntax in function parameter declarations
+        # but does not assign them. This creates an unlikely edge case with
+        # is_assigned
         if node.data == "decl_assign":
-            # IPL allows assignment syntax in function parameter declarations
-            # but does not assign them. This creates an unlikely edge case with
-            # is_assigned
             self._create_symbol(
-                node.children[0],  # type: ignore
-                type_,
+                token,
+                type,
                 is_assigned=False if is_parameter else True,
                 is_parameter=is_parameter,
             )
             return
-        self._create_symbol(
-            node.children[0], type_, is_parameter=is_parameter  # type: ignore
-        )
+        self._create_symbol(token, type, is_parameter=is_parameter)
 
-    def _decl_list(self, nodes: List[Tree], type_) -> None:
+    def _decl_list(self, nodes: List[Tree], type: ipl.Type) -> None:
         for node in nodes:
-            if node.data in self.decl_types:
-                self._handle_decl(node, type_)  # type: ignore
-                continue
-            raise ValueError(
-                f"decl_list contained child with `data` attribute {node.data}"
-            )
+            if node.data not in self.decl_types:
+                raise CompilationError(
+                    f"decl_list contained child with `data` attribute {node.data}",
+                    node.meta.line,
+                    node.meta.column,
+                )
+            self._handle_decl(node, type)
 
     def decl_stmt(self, node: Tree) -> None:
-        type_ = node.children[0].value  # type: ignore
+        token, *_ = node.children
+        assert isinstance(token, Token)
+        type = token.value
+        assert isinstance(type, ipl.Type)
 
         # node.children may contain `decl_types` or decl_list,
         # but the type is child to the decl_stmt only.
         for child in node.children[1:]:
             if child.data in self.decl_types:
-                self._handle_decl(child, type_)  # type: ignore
+                self._handle_decl(child, type)
             elif child.data == "decl_list":
-                self._decl_list(child.children, type_)  # type: ignore
+                self._decl_list(child.children, type)
             else:
-                raise ValueError(
-                    f"decl_stmt contained child with `data` attribute {child.data}"
+                raise CompilationError(
+                    f"decl_stmt contained child with `data` attribute {child.data}",
+                    node.meta.line,
+                    node.meta.column,
                 )
 
     def assign(self, node: Tree) -> None:
-        lhs = node.children[0]
-        rhs = node.children[1]
+        lhs, rhs, *_ = node.children
 
         if isinstance(lhs, Token) and lhs.type == "NAME":
             lhs_name = lhs.value
         elif lhs.data in ("subscript", "attribute"):
-            lhs_name = self._get_lhs_name(lhs).value  # type: ignore
+            lhs_name = self._get_lhs_name(lhs).value
 
         lhs_symbol = self.get_scope().lookup(lhs_name)
-        if not lhs_symbol:
+        if lhs_symbol is None:
             raise CompilationError(
                 f"Assignment to undeclared identifier {lhs_name}",
                 node.meta.line,
@@ -443,7 +458,7 @@ class SymbolTableVisitor(ScopeStackBase, Visitor_Recursive):
         # of b. This won't be caught elsewhere.
         if isinstance(rhs, Token) and rhs.type == "NAME":
             rhs_symbol = self.get_scope().lookup(rhs.value)
-            if not rhs_symbol:
+            if rhs_symbol is None:
                 raise CompilationError(
                     f"Reference of undeclared identifier {rhs.value}",
                     node.meta.line,
@@ -452,21 +467,24 @@ class SymbolTableVisitor(ScopeStackBase, Visitor_Recursive):
             rhs_symbol.is_referenced = True
 
     def call(self, node: Tree) -> None:
-        name = node.children[0].value  # type: ignore
-        called_symbol = self.get_global().callable_lookup(name)
-        if not called_symbol:
+        name, *_ = node.children
+        assert isinstance(name, Token)
+
+        symbol = self.get_global().callable_lookup(name)
+        if symbol is None:
             raise CompilationError(
                 f"Called undeclared callable {name}",
                 node.meta.line,
                 node.meta.column,
             )
-        called_symbol.is_referenced = True
+        symbol.is_referenced = True
 
-    # Prefer to allow list rather than use __default__
     def for_stmt(self, node: Tree) -> None:
-        loop_variant = node.children[0].value  # type: ignore
-        symbol = self.get_scope().lookup(loop_variant)
-        if not symbol:
+        loop_variant, *_ = node.children
+        assert isinstance(loop_variant, Token)
+
+        symbol = self.get_scope().lookup(loop_variant.value)
+        if symbol is None:
             raise CompilationError(
                 f"Assignment to undeclared identifier {loop_variant}",
                 node.meta.line,
@@ -475,6 +493,7 @@ class SymbolTableVisitor(ScopeStackBase, Visitor_Recursive):
         symbol.is_assigned = True
         self._update_referenced_identifiers(node)
 
+    # Prefer to allow list rather than use __default__
     def while_stmt(self, node: Tree) -> None:
         self._update_referenced_identifiers(node)
 
@@ -537,6 +556,10 @@ class SymbolTableVisitor(ScopeStackBase, Visitor_Recursive):
 
 
 def create_symtable(tree: Tree) -> SymbolTable:
-    symtable = SymbolTable("top", SymbolTableType.MODULE)
+    """Create a symbol table based upon a parse tree.
+
+    :param tree: The Lark parse tree.
+    """
+    symtable = SymbolTable("top")
     SymbolTableVisitor(symtable).visit_topdown(tree)
     return symtable

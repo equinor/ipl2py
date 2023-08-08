@@ -114,7 +114,7 @@ def main():
     )
 
     if args.pretty:
-        print("Pretty printing the AST is not yet implemented")
+        print(ast.to_yaml())
     else:
         print(ast)
 
