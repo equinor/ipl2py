@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 from lark import Token, Tree
 from lark.visitors import Visitor_Recursive
@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 CallableSymbolTable = Union["ProcedureSymbolTable", "FunctionSymbolTable"]
 SymbolTableNode = Union["SymbolTable", CallableSymbolTable]
-ScopeStack = List[SymbolTableNode]
 
 
 class SymbolTableType(Enum):
@@ -32,7 +31,7 @@ class Symbol:
     or procedure it is callable."""
 
     name: str
-    type: Union[None, ipl.Type]  # None exception for procedure callable type
+    type: Optional[ipl.Type]  # None exception for procedure callable type
     is_referenced: bool = False
     is_parameter: bool = False
     is_global: bool = False
@@ -75,11 +74,11 @@ class SymbolTableBase(ABC):
         self.callables[symbol.name] = symbol
 
     @abstractmethod
-    def lookup(self, name: str) -> Union[None, Symbol]:
+    def lookup(self, name: str) -> Optional[Symbol]:
         raise NotImplementedError()
 
     @abstractmethod
-    def callable_lookup(self, name: str) -> Union[None, Symbol]:
+    def callable_lookup(self, name: str) -> Optional[Symbol]:
         raise NotImplementedError()
 
     @property
@@ -100,7 +99,7 @@ class SymbolTable(SymbolTableBase):
         super().__init__(name, SymbolTableType.MODULE)
         self.children: Dict[str, SymbolTableNode] = {}
 
-    def lookup(self, name: str) -> Union[None, Symbol]:
+    def lookup(self, name: str) -> Optional[Symbol]:
         symbol = self.symbols.get(name)
         if symbol is None:
             return None
@@ -109,7 +108,7 @@ class SymbolTable(SymbolTableBase):
         symbol.is_free = False
         return symbol
 
-    def callable_lookup(self, name: str) -> Union[None, Symbol]:
+    def callable_lookup(self, name: str) -> Optional[Symbol]:
         return self.callables.get(name)
 
     @property
@@ -132,7 +131,7 @@ class SymbolTable(SymbolTableBase):
         self.insert_callable(symbol)
         self.children[child.name] = child
 
-    def get_child(self, name: str) -> Union[None, SymbolTableNode]:
+    def get_child(self, name: str) -> Optional[SymbolTableNode]:
         return self.children.get(name)
 
     @property
@@ -168,7 +167,7 @@ class ProcedureSymbolTable(SymbolTableBase):
         self.parent = parent
         self.is_called = False
 
-    def lookup(self, name: str) -> Union[None, Symbol]:
+    def lookup(self, name: str) -> Optional[Symbol]:
         symbol = self.symbols.get(name)
         if symbol is None:
             symbol = self.parent.lookup(name)
@@ -177,7 +176,7 @@ class ProcedureSymbolTable(SymbolTableBase):
             symbol.is_free = True
         return symbol
 
-    def callable_lookup(self, name: str) -> Union[None, Symbol]:
+    def callable_lookup(self, name: str) -> Optional[Symbol]:
         return self.parent.callable_lookup(name)
 
     @property
@@ -248,10 +247,10 @@ class FunctionSymbolTable(ProcedureSymbolTable):
         )
 
 
-class ScopeStackBase:
+class ScopeStack:
     def __init__(self, base: SymbolTable) -> None:
         self._base = base
-        self._scope_stack: ScopeStack = [base]
+        self._scope_stack: List[SymbolTableNode] = [base]
 
     def get_global(self) -> SymbolTable:
         return self._base
@@ -259,11 +258,11 @@ class ScopeStackBase:
     def get_scope(self) -> SymbolTableNode:
         return self._scope_stack[-1]
 
-    def push_scope(self, node: SymbolTableNode) -> ScopeStack:
+    def push_scope(self, node: SymbolTableNode) -> List[SymbolTableNode]:
         self._scope_stack.append(node)
         return self._scope_stack
 
-    def pop_scope(self) -> Union[None, SymbolTableNode]:
+    def pop_scope(self) -> Optional[SymbolTableNode]:
         # Don't pop global state
         if len(self._scope_stack) == 1:
             return None
@@ -271,17 +270,17 @@ class ScopeStackBase:
         self._scope_stack = self._scope_stack[:-1]
         return table
 
-    def lookup(self, name: str) -> Union[None, Symbol]:
+    def lookup(self, name: str) -> Optional[Symbol]:
         return self.get_scope().lookup(name)
 
-    def callable_lookup(self, name: str) -> Union[None, Symbol]:
+    def callable_lookup(self, name: str) -> Optional[Symbol]:
         return self.get_scope().callable_lookup(name)
 
-    def child_lookup(self, name: str) -> Union[None, SymbolTableNode]:
+    def child_lookup(self, name: str) -> Optional[SymbolTableNode]:
         return self.get_global().get_child(name)
 
 
-class SymbolTableVisitor(ScopeStackBase, Visitor_Recursive):
+class SymbolTableVisitor(ScopeStack, Visitor_Recursive):
     """This visitor generates a symbol table from the top down. This is done
     before the first-pass AST is constructed because IPL requires top declarations
     before any statements can operate on them. Converting that directly to an AST

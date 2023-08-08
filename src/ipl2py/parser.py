@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, List, Mapping, Tuple, Union
+from typing import Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 from lark import Lark, Token, Tree
 from lark.exceptions import ParseError, UnexpectedInput, UnexpectedToken
@@ -10,7 +10,7 @@ from ipl2py.ipl import SysDef, Type
 
 logger = logging.getLogger(__name__)
 
-LexerCallback = Callable[[Token], Union[Token, None]]
+LexerCallback = Callable[[Token], Optional[Token]]
 
 
 class CommentVisitor(Visitor_Recursive):
@@ -44,7 +44,7 @@ class CommentVisitor(Visitor_Recursive):
 
         self._is_if_else = False
 
-    def _add_comments_attrs(self, node: Tree):
+    def _add_comments_attrs(self, node: Tree) -> None:
         setattr(node.meta, "header_comments", [])
         setattr(node.meta, "inline_comments", [])
         setattr(node.meta, "footer_comments", [])
