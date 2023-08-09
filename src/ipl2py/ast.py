@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Generic, List, Literal, Mapping, Optional, TypeVar, Union
+from typing import Any, Generator, List, Literal, Mapping, Optional, Union
 
 import lark
 import numpy as np
@@ -40,6 +40,20 @@ Statement = Union[
     "Assign", "Call", ExprType, "For", "Function", "Halt", "If", "Return", "While"
 ]
 Body = List[Statement]
+
+ASTNode = Union[
+    Primitives,
+    ArrayType,
+    IndexType,
+    UnaryOpsType,
+    BinOpsType,
+    CompareOpsType,
+    BoolOpsType,
+    ExprType,
+    TestType,
+    Statement,
+    "Module",
+]
 
 
 @dataclass(repr=False)
@@ -87,19 +101,7 @@ class Array3D:
 
 
 @dataclass
-class Assign(_Base):
-    targets: List[Name]
-    value: ExprType
-
-
-@dataclass
-class Attribute(_Base):
-    value: Union[ArrayType, Name]
-    attr: str
-
-
-@dataclass
-class Index1D(_Base):
+class Index1D:
     i: ExprType
 
 
@@ -111,12 +113,6 @@ class Index2D(Index1D):
 @dataclass
 class Index3D(Index2D):
     k: ExprType
-
-
-@dataclass
-class Subscript(_Base):
-    value: Name
-    index: IndexType
 
 
 @dataclass
@@ -132,12 +128,6 @@ class USub:
 @dataclass
 class UNot:
     pass
-
-
-@dataclass
-class UnaryOp(_Base):
-    op: UnaryOpsType
-    operand: ExprType
 
 
 @dataclass
@@ -158,13 +148,6 @@ class Mult:
 @dataclass
 class Div:
     pass
-
-
-@dataclass
-class BinOp(_Base):
-    left: ExprType
-    op: BinOpsType
-    right: ExprType
 
 
 @dataclass
@@ -198,13 +181,6 @@ class NotEq:
 
 
 @dataclass
-class Compare(_Base):
-    left: ExprType
-    op: CompareOpsType
-    right: ExprType
-
-
-@dataclass
 class And:
     pass
 
@@ -215,10 +191,48 @@ class Or:
 
 
 @dataclass
+class Attribute(_Base):
+    value: Union[ArrayType, Name]
+    attr: str
+
+
+@dataclass
+class Subscript(_Base):
+    value: Name
+    index: IndexType
+
+
+@dataclass
+class UnaryOp(_Base):
+    op: UnaryOpsType
+    operand: ExprType
+
+
+@dataclass
+class BinOp(_Base):
+    left: ExprType
+    op: BinOpsType
+    right: ExprType
+
+
+@dataclass
+class Compare(_Base):
+    left: ExprType
+    op: CompareOpsType
+    right: ExprType
+
+
+@dataclass
 class BoolOp(_Base):
     left: ExprType
     op: BoolOpsType
     right: ExprType
+
+
+@dataclass
+class Assign(_Base):
+    targets: List[Name]
+    value: ExprType
 
 
 @dataclass
@@ -278,8 +292,12 @@ class Module(_Base):
         return yaml.dump(self)
 
 
-_Return_T = TypeVar("_Return_T")
-_Leaf_T = TypeVar("_Leaf_T")
+@dataclass
+class AST:
+    modules: List[Module]
+
+    def to_yaml(self) -> str:
+        return yaml.dump(self)
 
 
 class Context(Enum):
@@ -290,7 +308,7 @@ class Context(Enum):
     PARAM = auto()
 
 
-class AstTransformer(ScopeStack, Generic[_Leaf_T, _Return_T]):
+class AstTransformer(ScopeStack):
     def __init__(self, base: SymbolTable) -> None:
         super().__init__(base)
         self._context_stack: List[Context] = []
@@ -338,19 +356,25 @@ class AstTransformer(ScopeStack, Generic[_Leaf_T, _Return_T]):
             footer_comments=meta.footer_comments,
         )
 
-    def _call_userfunc_exit(self, tree: Tree, node):
+    def _call_userfunc_exit(self, tree: Tree, node: ASTNode) -> ASTNode:
         try:
             return getattr(self, f"{tree.data}_exit")(tree, node)
         except AttributeError:
             return node
 
-    def _call_userfunc(self, tree: Tree, new_children=None):
+    def _call_userfunc(
+        self, tree: Tree, new_children: Optional[List[ASTNode]]
+    ) -> ASTNode:
         children = new_children if new_children is not None else tree.children
         try:
             meta = self._meta(tree.meta)
             return getattr(self, tree.data)(meta, children)
         except AttributeError:
-            return self.__default__(tree.data, children, tree.meta)
+            raise CompilationError(
+                f"No AST callback for rule type `{tree.data}`",
+                tree.meta.line,
+                tree.meta.column,
+            )
 
     def _call_userfunc_enter(self, tree: Tree) -> Tree:
         try:
@@ -363,23 +387,25 @@ class AstTransformer(ScopeStack, Generic[_Leaf_T, _Return_T]):
             return getattr(self, token.type)(token)
         except AttributeError:
             raise CompilationError(
-                f"No callback for token type {token.type}",
+                f"No AST callback for token type `{token.type}`",
                 token.line,
                 token.column,
             )
 
-    def _transform_children(self, children):
-        for c in children:
-            res = c
-            if isinstance(c, Tree):
-                res = self._transform_tree(c)
-            elif isinstance(c, Token):
-                res = self._call_userfunc_token(c)
+    def _transform_children(
+        self, children: List[Union[Tree, Token]]
+    ) -> Generator[ASTNode, None, None]:
+        for child in children:
+            node = None
+            if isinstance(child, Tree):
+                node = self._transform_tree(child)
+            elif isinstance(child, Token):
+                node = self._call_userfunc_token(child)
 
-            if res is not Discard:
-                yield res
+            if node is not Discard:
+                yield node
 
-    def _transform_tree(self, tree):
+    def _transform_tree(self, tree: Tree) -> ASTNode:
         tree = self._call_userfunc_enter(tree)
 
         children = list(self._transform_children(tree.children))
@@ -401,8 +427,10 @@ class AstTransformer(ScopeStack, Generic[_Leaf_T, _Return_T]):
             statements.append(child)
         return statements
 
-    def transform(self, tree: Tree[_Leaf_T]) -> _Return_T:
-        return self._transform_tree(tree)
+    def transform(self, tree: Tree) -> Module:
+        module = self._transform_tree(tree)
+        assert isinstance(module, Module)
+        return module
 
     def start(self, meta: Meta, children):
         statements = self._flatten_children(children)
@@ -621,8 +649,8 @@ class AstTransformer(ScopeStack, Generic[_Leaf_T, _Return_T]):
         if ctx != Context.SUBSCRIPT_LIST:
             raise CompilationError(
                 f"Expected {Context.SUBSCRIPT_LIST} context but got {ctx}",
-                index.meta.line,
-                index.meta.column,
+                tree.meta.line,
+                tree.meta.column,
             )
         return index
 
@@ -630,12 +658,12 @@ class AstTransformer(ScopeStack, Generic[_Leaf_T, _Return_T]):
         dimension = len(children)
         if dimension == 3:
             i, j, k = children
-            return Index3D(i=i, j=j, k=k, meta=meta)
+            return Index3D(i=i, j=j, k=k)
         elif dimension == 2:
             i, j = children
-            return Index2D(i=i, j=j, meta=meta)
+            return Index2D(i=i, j=j)
         i, *_ = children
-        return Index1D(i=i, meta=meta)
+        return Index1D(i=i)
 
     def subscript_list_enter(self, tree) -> Tree:
         self.push_context(Context.SUBSCRIPT_LIST)
@@ -732,9 +760,6 @@ class AstTransformer(ScopeStack, Generic[_Leaf_T, _Return_T]):
                 token.column,
             )
         return Name(id=symbol.name, type=symbol.type)
-
-    def __default__(self, data, children, meta) -> Tree[_Leaf_T]:
-        return Tree(data, children, meta)
 
 
 def create_ast(tree: Tree, symtable: SymbolTable) -> Module:
