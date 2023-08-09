@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Generator, List, Literal, Mapping, Optional, Union
+from typing import Any, Generator, List, Mapping, Optional, Union
 
 import lark
 import numpy as np
@@ -13,7 +13,7 @@ from ipl2py.exceptions import CompilationError
 from ipl2py.symtable import ScopeStack, SymbolTable
 
 PyPrimitives = Union[bool, int, float, str, None]
-Primitives = Union[ipl.Constant, ipl.SysDef, Literal[ipl.Type.POINT], PyPrimitives]
+Primitives = Union[ipl.Constant, ipl.SysDef, PyPrimitives]
 
 ArrayType = Union["Array1D", "Array2D", "Array3D"]
 IndexType = Union["Index1D", "Index2D", "Index3D"]
@@ -31,6 +31,7 @@ ExprType = Union[
     "Compare",
     "Constant",
     "Name",
+    "Point",
     "Subscript",
     "UnaryOp",
 ]
@@ -83,6 +84,13 @@ class Constant:
 class Name:
     id: str
     type: Optional[ipl.Type]
+
+
+@dataclass
+class Point:
+    x: ExprType
+    y: ExprType
+    z: Optional[ExprType]
 
 
 @dataclass
@@ -704,6 +712,12 @@ class AstTransformer(ScopeStack):
     def attribute_enter(self, tree) -> Tree:
         self.push_context(Context.ATTRIBUTE)
         return tree
+
+    def point(self, meta: Meta, children) -> Point:
+        x, y, z, *_ = children
+        if z is None:
+            z = 0
+        return Point(x=x, y=y, z=z)
 
     def TYPE(self, token: Token) -> _DiscardType:
         return Discard
