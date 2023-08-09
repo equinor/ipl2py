@@ -76,6 +76,26 @@ Float c = 3.14
     assert_ast_constant_assign(tree.body[2], "c", ipl.Type.FLOAT, 3.14)
 
 
+def test_global_point_assignment(to_ast):
+    tree = to_ast(
+        """
+Int a, b
+Point c = (a + b, a)
+        """
+    )
+    a = tree.body[0].targets[0]
+    b = tree.body[1].targets[0]
+    stmt = tree.body[2]
+    assert isinstance(stmt, ast.Assign)
+    assert stmt.targets[0] == ast.Name(id="c", type=ipl.Type.POINT)
+    point = stmt.value
+    assert isinstance(point, ast.Point)
+    assert point.x.left == a
+    assert point.x.right == b
+    assert point.y == a
+    assert point.z == 0
+
+
 def test_global_multi_multi_assign_statements(to_ast):
     tree = to_ast(
         """
