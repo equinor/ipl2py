@@ -492,65 +492,18 @@ class SymbolTableVisitor(ScopeStack, Visitor_Recursive):
         symbol.is_assigned = True
         self._update_referenced_identifiers(node)
 
-    # Prefer to allow list rather than use __default__
-    def while_stmt(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
+    def decl_list(self, tree: Tree) -> None:
+        return
 
-    def if_stmt(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
+    def attribute(self, tree: Tree) -> None:
+        return
 
-    def return_stmt(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
+    def subscript(self, tree: Tree) -> None:
+        return
 
-    def and_test(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def or_test(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def arg_list(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def subscript_list(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def lt(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def lte(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def gt(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def gte(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def eq(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def noteq(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def add(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def sub(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def mult(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def div(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def uadd(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def usub(self, node: Tree) -> None:
-        self._update_referenced_identifiers(node)
-
-    def unot(self, node: Tree) -> None:
+    def __default__(self, node: Tree) -> None:
+        if node.data in self.decl_types:
+            return
         self._update_referenced_identifiers(node)
 
 
