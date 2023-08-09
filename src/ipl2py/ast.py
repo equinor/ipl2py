@@ -37,28 +37,16 @@ ExprType = Union[
 ]
 TestType = Union["BoolOp", ExprType]
 
-Statement = Union[
-    "Assign", "Call", ExprType, "For", "Function", "Halt", "If", "Return", "While"
-]
-Body = List[Statement]
+Body = List["Statement"]
 
-ASTNode = Union[
-    Primitives,
-    ArrayType,
-    IndexType,
-    UnaryOpsType,
-    BinOpsType,
-    CompareOpsType,
-    BoolOpsType,
-    ExprType,
-    TestType,
-    Statement,
-    "Module",
-]
+
+@dataclass
+class Node:
+    pass
 
 
 @dataclass(repr=False)
-class Meta:
+class Meta(Node):
     line: int
     column: int
     start_pos: int
@@ -71,45 +59,50 @@ class Meta:
 
 
 @dataclass
-class _Base:
+class _Base(Node):
     meta: Meta
 
 
 @dataclass
-class Constant:
+class Constant(Node):
     value: Primitives
 
 
 @dataclass
-class Name:
+class Name(Node):
     id: str
     type: Optional[ipl.Type]
 
 
 @dataclass
-class Point:
+class Param(Name):
+    pass
+
+
+@dataclass
+class Point(Node):
     x: ExprType
     y: ExprType
     z: Optional[ExprType]
 
 
 @dataclass
-class Array1D:
+class Array1D(Node):
     value: np.ndarray
 
 
 @dataclass
-class Array2D:
+class Array2D(Node):
     value: np.ndarray
 
 
 @dataclass
-class Array3D:
+class Array3D(Node):
     value: np.ndarray
 
 
 @dataclass
-class Index1D:
+class Index1D(Node):
     i: ExprType
 
 
@@ -124,77 +117,77 @@ class Index3D(Index2D):
 
 
 @dataclass
-class UAdd:
+class UAdd(Node):
     pass
 
 
 @dataclass
-class USub:
+class USub(Node):
     pass
 
 
 @dataclass
-class UNot:
+class UNot(Node):
     pass
 
 
 @dataclass
-class Add:
+class Add(Node):
     pass
 
 
 @dataclass
-class Sub:
+class Sub(Node):
     pass
 
 
 @dataclass
-class Mult:
+class Mult(Node):
     pass
 
 
 @dataclass
-class Div:
+class Div(Node):
     pass
 
 
 @dataclass
-class Lt:
+class Lt(Node):
     pass
 
 
 @dataclass
-class LtE:
+class LtE(Node):
     pass
 
 
 @dataclass
-class Gt:
+class Gt(Node):
     pass
 
 
 @dataclass
-class GtE:
+class GtE(Node):
     pass
 
 
 @dataclass
-class Eq:
+class Eq(Node):
     pass
 
 
 @dataclass
-class NotEq:
+class NotEq(Node):
     pass
 
 
 @dataclass
-class And:
+class And(Node):
     pass
 
 
 @dataclass
-class Or:
+class Or(Node):
     pass
 
 
@@ -238,42 +231,47 @@ class BoolOp(_Base):
 
 
 @dataclass
-class Assign(_Base):
+class Statement(_Base):
+    pass
+
+
+@dataclass
+class Assign(Statement):
     targets: List[Name]
     value: ExprType
 
 
 @dataclass
-class Halt(_Base):
+class Halt(Statement):
     pass
 
 
 @dataclass
-class Return(_Base):
+class Return(Statement):
     value: ExprType
 
 
 @dataclass
-class Call(_Base):
+class Call(Statement):
     func: Name
     args: List[ExprType]
 
 
 @dataclass
-class If(_Base):
+class If(Statement):
     test: TestType
     body: Body
     orelse: Optional[Body]
 
 
 @dataclass
-class While(_Base):
+class While(Statement):
     test: TestType
     body: Body
 
 
 @dataclass
-class For(_Base):
+class For(Statement):
     target: Name
     start: ExprType
     end: ExprType
@@ -281,12 +279,7 @@ class For(_Base):
 
 
 @dataclass
-class Param(Name):
-    pass
-
-
-@dataclass
-class Function(_Base):
+class Function(Statement):
     name: Name
     params: List[Param]
     body: Body
@@ -301,7 +294,7 @@ class Module(_Base):
 
 
 @dataclass
-class AST:
+class AST(_Base):
     modules: List[Module]
 
     def to_yaml(self) -> str:
@@ -364,15 +357,13 @@ class AstTransformer(ScopeStack):
             footer_comments=meta.footer_comments,
         )
 
-    def _call_userfunc_exit(self, tree: Tree, node: ASTNode) -> ASTNode:
+    def _call_userfunc_exit(self, tree: Tree, node: Node) -> Node:
         try:
             return getattr(self, f"{tree.data}_exit")(tree, node)
         except AttributeError:
             return node
 
-    def _call_userfunc(
-        self, tree: Tree, new_children: Optional[List[ASTNode]]
-    ) -> ASTNode:
+    def _call_userfunc(self, tree: Tree, new_children: Optional[List[Node]]) -> Node:
         children = new_children if new_children is not None else tree.children
         try:
             meta = self._meta(tree.meta)
@@ -402,7 +393,7 @@ class AstTransformer(ScopeStack):
 
     def _transform_children(
         self, children: List[Union[Tree, Token]]
-    ) -> Generator[ASTNode, None, None]:
+    ) -> Generator[Node, None, None]:
         for child in children:
             node = None
             if isinstance(child, Tree):
@@ -413,7 +404,7 @@ class AstTransformer(ScopeStack):
             if node is not Discard:
                 yield node
 
-    def _transform_tree(self, tree: Tree) -> ASTNode:
+    def _transform_tree(self, tree: Tree) -> Node:
         tree = self._call_userfunc_enter(tree)
 
         children = list(self._transform_children(tree.children))

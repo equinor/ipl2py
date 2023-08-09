@@ -71,3 +71,7 @@ class SysDef(str, Enum):
     N_GRIDMODELS = "@N_GRIDMODELS"
     N_WELLS = "@N_WELLS"
     POPDOWN = "@POPDOWN"
+
+
+class Builtings(str, Enum):
+    PRINT = "Print"
