@@ -716,7 +716,7 @@ class AstTransformer(ScopeStack):
     def point(self, meta: Meta, children) -> Point:
         x, y, z, *_ = children
         if z is None:
-            z = 0
+            z = Constant(value=0)
         return Point(x=x, y=y, z=z)
 
     def TYPE(self, token: Token) -> _DiscardType:

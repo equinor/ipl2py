@@ -93,7 +93,7 @@ Point c = (a + b, a)
     assert point.x.left == a
     assert point.x.right == b
     assert point.y == a
-    assert point.z == 0
+    assert point.z == ast.Constant(value=0)
 
 
 def test_global_multi_multi_assign_statements(to_ast):
