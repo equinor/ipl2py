@@ -1,15 +1,21 @@
 import logging
 
-from ipl2py.ast import Module, create_ast
+from ipl2py.ast import create_ast
+from ipl2py.codegen import CodeGenVisitor
 from ipl2py.parser import parse
 from ipl2py.symtable import create_symtable
+from ipl2py.visitors import PrettyPrintVisitor
 
 logger = logging.getLogger(__name__)
 
 
 def compile(
-    content: str, include_comments=True, print_parse_tree=False, pretty=False
-) -> Module:
+    content: str,
+    include_comments=True,
+    print_parse_tree=False,
+    print_ast=False,
+    pretty=False,
+) -> str:
     """This function takes a string representing a raw IPL file and compiles it
     into Python code that is compatible with the RMS Python environment. By
     default it includes comments from the original IPL file and it tries its
@@ -31,4 +37,9 @@ def compile(
 
     symtable = create_symtable(tree)
     ast = create_ast(tree, symtable)
-    return ast
+
+    if print_ast:
+        print(PrettyPrintVisitor().visit(ast) if pretty else ast)
+
+    code = CodeGenVisitor().visit(ast)
+    return code

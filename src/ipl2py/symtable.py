@@ -471,6 +471,8 @@ class SymbolTableVisitor(ScopeStack, Visitor_Recursive):
 
         symbol = self.get_global().callable_lookup(name)
         if symbol is None:
+            if name in ipl.BUILTINS:
+                return
             raise CompilationError(
                 f"Called undeclared callable {name}",
                 node.meta.line,
