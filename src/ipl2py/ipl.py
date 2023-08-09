@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from enum import Enum
+from typing import List
 
 
 class Type(str, Enum):
@@ -73,5 +75,11 @@ class SysDef(str, Enum):
     POPDOWN = "@POPDOWN"
 
 
-class Builtings(str, Enum):
-    PRINT = "Print"
+@dataclass
+class BuiltinFunc:
+    ipl_name: str
+    py_name: str
+    imports: List[str]
+
+
+BUILTINS = {"Print": BuiltinFunc(ipl_name="Print", py_name="print", imports=[])}

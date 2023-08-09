@@ -71,7 +71,7 @@ class Constant(Node):
 @dataclass
 class Name(Node):
     id: str
-    type: Optional[ipl.Type]
+    type: Union[None, ipl.Type]
 
 
 @dataclass
@@ -759,6 +759,9 @@ class AstTransformer(ScopeStack):
 
         symbol = self.callable_lookup(name)
         if symbol is None:
+            if name in ipl.BUILTINS:
+                fn = ipl.BUILTINS[name]
+                return Name(id=fn.py_name, type=None)
             raise CompilationError(
                 f"Usage of unknown identifier {name}",
                 token.line,
