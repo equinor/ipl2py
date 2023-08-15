@@ -1,7 +1,7 @@
 import logging
 
 from ipl2py.ast import create_ast
-from ipl2py.codegen import CodeGenVisitor
+from ipl2py.codegen import generate_code
 from ipl2py.parser import parse
 from ipl2py.symtable import create_symtable
 from ipl2py.visitors import PrettyPrintVisitor
@@ -27,8 +27,9 @@ def compile(
         by default.
     :param print_parse_tree: Print the full parse tree before it's converted
         into an AST. False by default.
+    :param print_ast: Print the AST. False by default.
     :param pretty: Prettify the print of the parse tree. Only relevant if
-        ``print_parse_tree`` is set to True. False by default.
+        ``print_parse_tree`` or ``print_ast``is set to True. False by default.
     """
     tree = parse(content, include_comments=include_comments)
 
@@ -41,5 +42,5 @@ def compile(
     if print_ast:
         print(PrettyPrintVisitor().visit(ast) if pretty else ast)
 
-    code = CodeGenVisitor().visit(ast)
+    code = generate_code(ast)
     return code
