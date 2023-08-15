@@ -40,12 +40,12 @@ TestType = Union["BoolOp", ExprType]
 Body = List["Statement"]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Node:
     pass
 
 
-@dataclass(repr=False)
+@dataclass(repr=False, frozen=True)
 class Meta(Node):
     line: int
     column: int
@@ -58,219 +58,218 @@ class Meta(Node):
     footer_comments: List[str]
 
 
-@dataclass
+@dataclass(frozen=True)
 class _Base(Node):
     meta: Meta
 
 
-@dataclass
+@dataclass(frozen=True)
 class Constant(Node):
     value: Primitives
 
 
-@dataclass
+@dataclass(frozen=True)
 class Name(Node):
     id: str
     type: Union[None, ipl.Type]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Param(Name):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Point(Node):
     x: ExprType
     y: ExprType
     z: Optional[ExprType]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Array1D(Node):
     value: np.ndarray
 
 
-@dataclass
+@dataclass(frozen=True)
 class Array2D(Node):
     value: np.ndarray
 
 
-@dataclass
+@dataclass(frozen=True)
 class Array3D(Node):
     value: np.ndarray
 
 
-@dataclass
+@dataclass(frozen=True)
 class Index1D(Node):
     i: ExprType
 
 
-@dataclass
+@dataclass(frozen=True)
 class Index2D(Index1D):
     j: ExprType
 
 
-@dataclass
+@dataclass(frozen=True)
 class Index3D(Index2D):
     k: ExprType
 
 
-@dataclass
+@dataclass(frozen=True)
 class UAdd(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class USub(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class UNot(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Add(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Sub(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Mult(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Div(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Lt(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class LtE(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Gt(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class GtE(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Eq(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class NotEq(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class And(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Or(Node):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Attribute(_Base):
     value: Union[ArrayType, Name]
     attr: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class Subscript(_Base):
     value: Name
     index: IndexType
 
 
-@dataclass
+@dataclass(frozen=True)
 class UnaryOp(_Base):
     op: UnaryOpsType
     operand: ExprType
 
 
-@dataclass
+@dataclass(frozen=True)
 class BinOp(_Base):
     left: ExprType
     op: BinOpsType
     right: ExprType
 
 
-@dataclass
+@dataclass(frozen=True)
 class Compare(_Base):
     left: ExprType
     op: CompareOpsType
     right: ExprType
 
 
-@dataclass
+@dataclass(frozen=True)
 class BoolOp(_Base):
-    left: ExprType
     op: BoolOpsType
-    right: ExprType
+    values: List[ExprType]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Statement(_Base):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Assign(Statement):
     targets: List[Name]
     value: ExprType
 
 
-@dataclass
+@dataclass(frozen=True)
 class Halt(Statement):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Return(Statement):
     value: ExprType
 
 
-@dataclass
+@dataclass(frozen=True)
 class Call(Statement):
     func: Name
     args: List[ExprType]
 
 
-@dataclass
+@dataclass(frozen=True)
 class If(Statement):
     test: TestType
     body: Body
     orelse: Optional[Body]
 
 
-@dataclass
+@dataclass(frozen=True)
 class While(Statement):
     test: TestType
     body: Body
 
 
-@dataclass
+@dataclass(frozen=True)
 class For(Statement):
     target: Name
     start: ExprType
@@ -278,14 +277,14 @@ class For(Statement):
     body: Body
 
 
-@dataclass
+@dataclass(frozen=True)
 class Function(Statement):
     name: Name
     params: List[Param]
     body: Body
 
 
-@dataclass
+@dataclass(frozen=True)
 class Module(_Base):
     body: List[Statement]
 
@@ -293,7 +292,7 @@ class Module(_Base):
         return yaml.dump(self)
 
 
-@dataclass
+@dataclass(frozen=True)
 class AST(_Base):
     modules: List[Module]
 
@@ -580,12 +579,10 @@ class AstTransformer(ScopeStack):
         return Halt(meta=meta)
 
     def and_test(self, meta: Meta, children) -> BoolOp:
-        left, right = children
-        return BoolOp(left=left, op=And(), right=right, meta=meta)
+        return BoolOp(op=And(), values=children, meta=meta)
 
     def or_test(self, meta: Meta, children) -> BoolOp:
-        left, right = children
-        return BoolOp(left=left, op=Or(), right=right, meta=meta)
+        return BoolOp(op=Or(), values=children, meta=meta)
 
     def assign(self, meta: Meta, children) -> Assign:
         name, value, *_ = children

@@ -488,20 +488,13 @@ ENDIF
 
 
 @pytest.mark.parametrize(
-    "test_str,boolop,left,op,right",
+    "test_str,binop,left,op,right",
     [
         (
-            "TRUE AND TRUE",
-            ast.BoolOp,
-            ast.Constant(value=True),
-            ast.And(),
-            ast.Constant(value=True),
-        ),
-        (
-            "1 OR 2",
-            ast.BoolOp,
+            "1 + 2",
+            ast.BinOp,
             ast.Constant(value=1),
-            ast.Or(),
+            ast.Add(),
             ast.Constant(value=2),
         ),
         (
@@ -525,16 +518,9 @@ ENDIF
             ast.NotEq(),
             ast.Constant(value="bye"),
         ),
-        (
-            "1 + 2",
-            ast.BinOp,
-            ast.Constant(value=1),
-            ast.Add(),
-            ast.Constant(value=2),
-        ),
     ],
 )
-def test_global_various_binary_if_tests(to_ast, test_str, boolop, left, op, right):
+def test_global_various_binary_if_tests(to_ast, test_str, binop, left, op, right):
     tree = to_ast(
         f"""
 IF {test_str} THEN
@@ -545,10 +531,48 @@ ENDIF
     if_ = tree.body[0]
     assert isinstance(if_, ast.If)
     test = if_.test
-    assert isinstance(test, boolop)
+    assert isinstance(test, binop)
     assert test.left == left
     assert test.op == op
     assert test.right == right
+    assert len(if_.body) == 1 and isinstance(if_.body[0], ast.Halt)
+    assert if_.orelse is None
+
+
+@pytest.mark.parametrize(
+    "test_str,op,values",
+    [
+        (
+            "TRUE AND TRUE",
+            ast.And(),
+            [ast.Constant(value=True), ast.Constant(value=True)],
+        ),
+        (
+            "1 OR 2 OR 3 OR 4",
+            ast.Or(),
+            [
+                ast.Constant(value=1),
+                ast.Constant(value=2),
+                ast.Constant(value=3),
+                ast.Constant(value=4),
+            ],
+        ),
+    ],
+)
+def test_global_various_boolop_if_tests(to_ast, test_str, op, values):
+    tree = to_ast(
+        f"""
+IF {test_str} THEN
+    HALT
+ENDIF
+        """
+    )
+    if_ = tree.body[0]
+    assert isinstance(if_, ast.If)
+    test = if_.test
+    assert isinstance(test, ast.BoolOp)
+    assert test.op == op
+    assert test.values == values
     assert len(if_.body) == 1 and isinstance(if_.body[0], ast.Halt)
     assert if_.orelse is None
 
@@ -566,14 +590,14 @@ ENDIF
     assert isinstance(if_, ast.If)
     test = if_.test
     assert isinstance(test, ast.BoolOp)
-    left = test.left
-    assert test.right == ast.Constant(value=True)
     assert test.op == ast.Or()
 
+    left, right = test.values
+    assert right == ast.Constant(value=True)
+
     assert isinstance(left, ast.BoolOp)
-    assert left.left == ast.Constant(value=True)
     assert left.op == ast.And()
-    assert left.right == ast.Constant(value=False)
+    assert left.values == [ast.Constant(value=True), ast.Constant(value=False)]
     assert len(if_.body) == 1 and isinstance(if_.body[0], ast.Halt)
     assert if_.orelse is None
 
@@ -590,28 +614,34 @@ ENDIF
     if_ = tree.body[4]
     assert isinstance(if_, ast.If)
     test = if_.test
+
     assert isinstance(test, ast.BoolOp)
     assert test.op == ast.And()
+    left, right = test.values
 
-    left = test.left
     assert isinstance(left, ast.BoolOp)
     assert left.op == ast.And()
-    assert left.left.left == ast.Name(id="a", type=ipl.Type.INT)
-    assert left.left.op == ast.Gt()
-    assert left.left.right == ast.Constant(value=2)
-    assert left.right.left == ast.Name(id="a", type=ipl.Type.INT)
-    assert left.right.op == ast.Lt()
-    assert left.right.right == ast.Constant(value=4)
+    left_left, left_right = left.values
+    # a > 2
+    assert left_left.op == ast.Gt()
+    assert left_left.left == ast.Name(id="a", type=ipl.Type.INT)
+    assert left_left.right == ast.Constant(value=2)
+    # a < 4
+    assert left_right.left == ast.Name(id="a", type=ipl.Type.INT)
+    assert left_right.op == ast.Lt()
+    assert left_right.right == ast.Constant(value=4)
 
-    right = test.right
     assert isinstance(right, ast.BoolOp)
     assert right.op == ast.Or()
-    assert right.left.left == ast.Name(id="b", type=ipl.Type.INT)
-    assert right.left.op == ast.Eq()
-    assert right.left.right == ast.Name(id="c", type=ipl.Type.INT)
-    assert right.right.left == ast.Name(id="d", type=ipl.Type.INT)
-    assert right.right.op == ast.NotEq()
-    assert right.right.right == ast.Constant(value=0)
+    right_left, right_right = right.values
+    # b = c
+    assert right_left.left == ast.Name(id="b", type=ipl.Type.INT)
+    assert right_left.op == ast.Eq()
+    assert right_left.right == ast.Name(id="c", type=ipl.Type.INT)
+    # c <> 0
+    assert right_right.left == ast.Name(id="d", type=ipl.Type.INT)
+    assert right_right.op == ast.NotEq()
+    assert right_right.right == ast.Constant(value=0)
 
     assert len(if_.body) == 1 and isinstance(if_.body[0], ast.Halt)
     assert if_.orelse is None

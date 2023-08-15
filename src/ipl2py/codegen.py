@@ -1,14 +1,58 @@
-from contextlib import contextmanager
-from typing import Generator, List, Union
+from collections import deque
+from contextlib import contextmanager, nullcontext
+from enum import Enum, auto
+from typing import (
+    Callable,
+    ContextManager,
+    Deque,
+    Generator,
+    List,
+    Optional,
+    Sequence,
+    Union,
+)
 
 import ipl2py.ast as ast
+import ipl2py.ipl as ipl
 from ipl2py.visitors import Visitor
+
+
+class _Context(Enum):
+    BOOLOP = auto()
+    BINOP = auto()
+    COMPARE = auto()
+    MODULE = auto()
 
 
 class CodeGenVisitor(Visitor):
     def __init__(self) -> None:
         self._indent = 0
+        self._context: Deque[_Context] = deque()
+        self._context.append(_Context.MODULE)
         self._source: List[str] = []
+        self._ensure_type: Optional[ipl.Type] = None
+
+    def delimit_if(self, start: str, end: str, condition: bool) -> ContextManager[None]:
+        if condition:
+            return self.delimit(start, end)
+        return nullcontext()
+
+    def interleave(
+        self,
+        inter: Callable,
+        f: Callable[[ast.Node], None],
+        seq: Sequence[ast.Node],
+    ):
+        """Call f on each item in seq, calling inter() in between."""
+        seq_iter = iter(seq)
+        try:
+            f(next(seq_iter))
+        except StopIteration:
+            pass
+        else:
+            for x in seq_iter:
+                inter()
+                f(x)
 
     def newline(self) -> None:
         self.write("\n")
@@ -18,6 +62,14 @@ class CodeGenVisitor(Visitor):
         indentation level"""
         self.newline()
         self.write("    " * self._indent + text)
+
+    @contextmanager
+    def context(self, ctx: _Context) -> Generator[None, None, None]:
+        """A context manager for wrapping a context around operations.
+        Useful for knowing about our semantic position within the AST."""
+        self._context.append(ctx)
+        yield
+        self._context.pop()
 
     @contextmanager
     def delimit(self, start: str, end: str) -> Generator[None, None, None]:
@@ -31,7 +83,9 @@ class CodeGenVisitor(Visitor):
         """Add new source parts"""
         self._source.extend(text)
 
-    def traverse(self, node: Union[ast.Node, List[ast.Node]]) -> None:
+    def traverse(
+        self, node: Union[ast.Node, List[ast.Node], List[ast.Statement]]
+    ) -> None:
         if isinstance(node, list):
             for item in node:
                 self.traverse(item)
@@ -42,17 +96,20 @@ class CodeGenVisitor(Visitor):
         self.traverse(node)
         return "".join(self._source)
 
-    def Module(self, node) -> None:
+    def Module(self, node: ast.Module) -> None:
         self.traverse(node.body)
 
-    def Assign(self, node) -> None:
+    def Assign(self, node: ast.Assign) -> None:
         self.fill()
         for target in node.targets:
+            self._ensure_type = getattr(target, "type", None)
             self.traverse(target)
             self.write(" = ")
-        self.traverse(node.value)
 
-    def Call(self, node) -> None:
+        self.traverse(node.value)
+        self._ensure_type = None
+
+    def Call(self, node: ast.Call) -> None:
         self.newline()
         self.traverse(node.func)
         with self.delimit("(", ")"):
@@ -64,8 +121,41 @@ class CodeGenVisitor(Visitor):
                     comma = True
                 self.traverse(arg)
 
-    def Name(self, node) -> None:
+    def BoolOp(self, node: ast.BoolOp) -> None:
+        operator = node.op.__class__.__name__.lower()
+        with self.delimit_if("(", ")", self._context[-1] == _Context.BOOLOP):
+            with self.context(_Context.BOOLOP):
+                s = f" {operator} "
+                self.interleave(
+                    lambda: self.write(s),
+                    lambda node: self.traverse(node),
+                    node.values,
+                )
+
+    def Attribute(self, node: ast.Attribute) -> None:
+        self.traverse(node.value)
+        self.write(".")
+        self.write(node.attr)
+
+    def Subscript(self, node: ast.Subscript) -> None:
+        self.traverse(node.value)
+        with self.delimit("[", "]"):
+            self.traverse(node.index)
+
+    def Name(self, node: ast.Name) -> None:
         self.write(node.id)
 
-    def Constant(self, node) -> None:
-        self.write(repr(node.value))
+    def Constant(self, node: ast.Constant) -> None:
+        val = node.value
+        # Ensure implicit casting doesn't end up modifying the type
+        if self._ensure_type == ipl.Type.FLOAT and isinstance(val, int):
+            val = float(val)  # type: ignore
+        elif self._ensure_type == ipl.Type.INT and isinstance(val, float):
+            val = int(val)  # type: ignore
+
+        self.write(repr(val))
+
+
+def generate_code(ast: ast.Module) -> str:
+    code = CodeGenVisitor().visit(ast)
+    return code.strip()
