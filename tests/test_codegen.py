@@ -396,3 +396,101 @@ for i in range(a * 2, (b + a) - 1 + 1):
 )
 def test_simple_for_statement(given, expected):
     assert compile(given) == expected
+
+
+@pytest.mark.parametrize(
+    "given,expected",
+    [
+        (
+            """
+FUNCTION f()
+    Print(1)
+ENDFUNCTION
+            """,
+            """
+def f():
+    print(1)
+            """.strip(),
+        ),
+        (
+            """
+FUNCTION f(Int a)
+    Print(a)
+ENDFUNCTION
+            """,
+            """
+def f(a):
+    print(a)
+            """.strip(),
+        ),
+        (
+            """
+FUNCTION f(Int a, Float b, Bool c)
+    Print(a, b, c)
+ENDFUNCTION
+            """,
+            """
+def f(a, b, c):
+    print(a, b, c)
+            """.strip(),
+        ),
+        (
+            """
+Int FUNCTION f(Int a, Float b, Bool c)
+    RETURN(f(a, b, c))
+ENDFUNCTION
+            """,
+            """
+def f(a, b, c):
+    return f(a, b, c)
+            """.strip(),
+        ),
+        (
+            """
+Int FUNCTION mult(Int a, Int b)
+    IF a = 0 OR b = 0 THEN
+        RETURN(0)
+    ELSE
+        RETURN(a * b)
+    ENDIF
+ENDFUNCTION
+            """,
+            """
+def mult(a, b):
+    if a == 0 or b == 0:
+        return 0
+    else:
+        return a * b
+            """.strip(),
+        ),
+        (
+            """
+FUNCTION hello()
+    Print("Hello")
+ENDFUNCTION
+
+FUNCTION world()
+    Print("world!")
+ENDFUNCTION
+
+hello()
+Print(" ")
+world()
+            """,
+            """
+def hello():
+    print('Hello')
+
+
+def world():
+    print('world!')
+
+hello()
+print(' ')
+world()
+            """.strip(),
+        ),
+    ],
+)
+def test_simple_function_statements(given, expected):
+    assert compile(given) == expected
