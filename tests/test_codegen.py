@@ -25,7 +25,10 @@ Print(a, " world!")
 String a = "Hello"
 a[2] = "a"
             """,
-            """a = 'Hello'\na[2] = 'a'""",
+            """
+a = 'Hello'
+a[2] = 'a'
+            """.strip(),
         ),
         ("Int a = 123\na.length = 1", "a = 123\na.length = 1"),
         ('Print("Hello world!")', "print('Hello world!')"),
@@ -126,3 +129,135 @@ def test_operators_and_their_precedence(given, expected):
 )
 def test_unary_operators_with_precedence_and_parens(given, expected):
     assert compile(given) == expected
+
+
+@pytest.mark.parametrize(
+    "given,expected",
+    [
+        (
+            """
+IF TRUE THEN
+    HALT
+ENDIF
+            """,
+            """
+if True:
+    exit()
+            """.strip(),
+        ),
+        (
+            """
+IF TRUE THEN
+    HALT
+ELSE
+    Print(FALSE)
+ENDIF
+            """,
+            """
+if True:
+    exit()
+else:
+    print(False)
+            """.strip(),
+        ),
+        (
+            """
+IF TRUE THEN
+    HALT
+ELSE
+    IF FALSE THEN
+        Print(FALSE)
+    ENDIF
+ENDIF
+            """,
+            """
+if True:
+    exit()
+elif False:
+    print(False)
+            """.strip(),
+        ),
+        (
+            """
+IF TRUE THEN
+    IF TRUE THEN
+        HALT
+    ELSE
+        Print(FALSE)
+    ENDIF
+    Print(TRUE)
+ELSE
+    Print(TRUE)
+    IF FALSE THEN
+        Print(FALSE)
+    ENDIF
+ENDIF
+            """,
+            """
+if True:
+    if True:
+        exit()
+    else:
+        print(False)
+    print(True)
+else:
+    print(True)
+    if False:
+        print(False)
+            """.strip(),
+        ),
+    ],
+)
+def test_simple_if_else_statements(given, expected):
+    assert compile(given) == expected
+
+
+@pytest.mark.parametrize(
+    "test,expected",
+    [
+        (
+            "1 = 1",
+            """
+if 1 == 1:
+    exit()
+            """.strip(),
+        ),
+        (
+            "1 >= 1 OR 3 > 4 AND 1 + 1 = 2",
+            """
+if 1 >= 1 or (3 > 4 and (1 + 1) == 2):
+    exit()
+            """.strip(),
+        ),
+        (
+            'Print(1) = TRUE AND Print(2) > "2"',
+            """
+if print(1) == True and print(2) > '2':
+    exit()
+            """.strip(),
+        ),
+    ],
+)
+def test_if_else_statements_with_various_tests(test, expected):
+    code = f"""
+IF {test} THEN
+    HALT
+ENDIF
+    """
+    assert compile(code) == expected
+    elif_code = f"""
+IF {test} THEN
+    HALT
+ELSE
+    IF {test} THEN
+        HALT
+    ENDIF
+ENDIF
+    """
+    assert (
+        compile(elif_code)
+        == f"""
+{expected}
+el{expected}
+        """.strip()
+    )

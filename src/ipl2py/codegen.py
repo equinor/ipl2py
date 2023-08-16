@@ -22,9 +22,21 @@ class _Context(Enum):
     BINOP = auto()
     COMPARE = auto()
     MODULE = auto()
+    BLOCK = auto()
+    TEST = auto()
 
 
 class CodeGenVisitor(Visitor):
+    """This visitor generates the Python code from the AST. The AST
+    was modelled roughly (but not 1 to 1) after the Python AST. This
+    code similarly copies (often directly) from Python's ``ast.unparse``
+    function. The reasons these are copied and not used directly are
+    that the AST may have breaking changes between different Python
+    versions, and that ``unparse()`` is not available in Python 3.8.
+    There are also slight differences because our source language is not
+    Python itself, of course.
+    """
+
     def __init__(self) -> None:
         self._indent = 0
         self._context: Deque[_Context] = deque()
@@ -64,6 +76,21 @@ class CodeGenVisitor(Visitor):
         self.write("    " * self._indent + text)
 
     @contextmanager
+    def block(self, *, extra=None) -> Generator[None, None, None]:
+        """A context manager for preparing the source for blocks. It adds
+        the character ':', increases the indentation on enter, and decreases
+        the indentation on exit. If *extra* is given, it will be directly
+        appended after the colon character.
+        """
+        with self.context(_Context.BLOCK):
+            self.write(":")
+            if extra:
+                self.write(extra)
+            self._indent += 1
+            yield
+            self._indent -= 1
+
+    @contextmanager
     def context(self, ctx: _Context) -> Generator[None, None, None]:
         """A context manager for wrapping a context around operations.
         Useful for knowing about our semantic position within the AST."""
@@ -99,6 +126,32 @@ class CodeGenVisitor(Visitor):
     def Module(self, node: ast.Module) -> None:
         self.traverse(node.body)
 
+    def If(self, node: ast.If) -> None:
+        self.fill("if ")
+        with self.context(_Context.TEST):
+            self.traverse(node.test)
+        with self.block():
+            self.traverse(node.body)
+
+        # Collapse nested else: ifs into equivalent elifs
+        while (
+            node.orelse and len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If)
+        ):
+            node = node.orelse[0]
+            self.fill("elif ")
+            with self.context(_Context.TEST):
+                self.traverse(node.test)
+            with self.block():
+                self.traverse(node.body)
+
+        if node.orelse:
+            self.fill("else")
+            with self.block():
+                self.traverse(node.orelse)
+
+    def Halt(self, node: ast.Halt) -> None:
+        self.fill("exit()")
+
     def Assign(self, node: ast.Assign) -> None:
         self.fill()
         for target in node.targets:
@@ -110,7 +163,8 @@ class CodeGenVisitor(Visitor):
         self._ensure_type = None
 
     def Call(self, node: ast.Call) -> None:
-        self.newline()
+        if self._context[-1] in [_Context.MODULE, _Context.BLOCK]:
+            self.fill()
         self.traverse(node.func)
         with self.delimit("(", ")"):
             comma = False
