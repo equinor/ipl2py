@@ -219,7 +219,7 @@ def test_simple_for_loop(parse_tree, content, direction, expr, expr_expected):
         "start",
         [
             Tree(
-                "for_stmt",
+                f"for_{direction.lower()}_stmt",
                 [
                     Token("NAME", "i"),
                     Token("INT", "0"),
@@ -248,12 +248,12 @@ ENDFOR
     """
     expected = """
 start
-  for_stmt
+  for_to_stmt
     i
     col_min
     col_max
     suite
-      for_stmt
+      for_to_stmt
         j
         row_min
         row_max
@@ -261,7 +261,7 @@ start
           assign
             t
             0
-          for_stmt
+          for_to_stmt
             k
             1
             lay

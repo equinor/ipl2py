@@ -261,3 +261,138 @@ ENDIF
 el{expected}
         """.strip()
     )
+
+
+@pytest.mark.parametrize(
+    "given,expected",
+    [
+        (
+            """
+WHILE TRUE DO
+    Print("GOTO 10")
+ENDWHILE
+            """,
+            """
+while True:
+    print('GOTO 10')
+            """.strip(),
+        ),
+        (
+            """
+WHILE TRUE DO
+    WHILE 1 = 1 AND 2 = 2 OR TRUE DO
+        HALT
+    ENDWHILE
+    Print("GOTO 10")
+ENDWHILE
+            """,
+            """
+while True:
+    while (1 == 1 and 2 == 2) or True:
+        exit()
+    print('GOTO 10')
+            """.strip(),
+        ),
+        (
+            """
+Int a
+IF a = 0 THEN
+    WHILE a < 10 DO
+        Print(a)
+        a = a + 1
+    ENDWHILE
+ENDIF
+            """,
+            """
+a = 0
+if a == 0:
+    while a < 10:
+        print(a)
+        a = a + 1
+            """.strip(),
+        ),
+    ],
+)
+def test_simple_while_statement(given, expected):
+    assert compile(given) == expected
+
+
+@pytest.mark.parametrize(
+    "given,expected",
+    [
+        (
+            """
+Int i
+FOR i FROM 1 TO 10 DO
+    Print(i)
+ENDFOR
+            """,
+            """
+i = 0
+for i in range(1, 10 + 1):
+    print(i)
+            """.strip(),
+        ),
+        (
+            """
+Int i
+FOR i FROM 1 TO 10 DO
+    IF i = 2 THEN
+        Print(i)
+    ENDIF
+ENDFOR
+            """,
+            """
+i = 0
+for i in range(1, 10 + 1):
+    if i == 2:
+        print(i)
+            """.strip(),
+        ),
+        (
+            """
+Int i
+FOR i FROM 10 DOWNTO 1 DO
+    Print(i)
+ENDFOR
+            """,
+            """
+i = 0
+for i in range(10, 1 - 1, -1):
+    print(i)
+            """.strip(),
+        ),
+        (
+            """
+Int i, a, b = 10
+FOR i FROM a TO b DO
+    Print(i)
+ENDFOR
+            """,
+            """
+i = 0
+a = 0
+b = 10
+for i in range(a, b + 1):
+    print(i)
+            """.strip(),
+        ),
+        (
+            """
+Int i, a, b = 10
+FOR i FROM a * 2 TO b + a - 1 DO
+    Print(i)
+ENDFOR
+            """,
+            """
+i = 0
+a = 0
+b = 10
+for i in range(a * 2, (b + a) - 1 + 1):
+    print(i)
+            """.strip(),
+        ),
+    ],
+)
+def test_simple_for_statement(given, expected):
+    assert compile(given) == expected

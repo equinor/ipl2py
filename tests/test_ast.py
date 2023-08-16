@@ -681,6 +681,7 @@ ENDFOR
     assert for_.target == tree.body[0].targets[0]
     assert for_.start == ast.Constant(value=1)
     assert for_.end == ast.Constant(value=10)
+    assert for_.reverse is (True if direction == "DOWNTO" else False)
     assert isinstance(for_.body[0], ast.Halt)
 
 

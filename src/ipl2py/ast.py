@@ -274,6 +274,7 @@ class For(Statement):
     target: Name
     start: ExprType
     end: ExprType
+    reverse: bool
     body: Body
 
 
@@ -538,9 +539,17 @@ class AstTransformer(ScopeStack):
         value = Constant(value=self.default_value(name.type))
         return Assign(targets=[name], value=value, meta=meta)
 
-    def for_stmt(self, meta: Meta, children) -> For:
+    def for_to_stmt(self, meta: Meta, children) -> For:
         target, start, end, suite, *_ = children
-        return For(target=target, start=start, end=end, body=suite, meta=meta)
+        return For(
+            target=target, start=start, end=end, reverse=False, body=suite, meta=meta
+        )
+
+    def for_downto_stmt(self, meta: Meta, children) -> For:
+        target, start, end, suite, *_ = children
+        return For(
+            target=target, start=start, end=end, reverse=True, body=suite, meta=meta
+        )
 
     def while_stmt(self, meta: Meta, children) -> While:
         test, suite, *_ = children

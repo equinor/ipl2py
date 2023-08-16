@@ -126,6 +126,29 @@ class CodeGenVisitor(Visitor):
     def Module(self, node: ast.Module) -> None:
         self.traverse(node.body)
 
+    def For(self, node: ast.For) -> None:
+        self.fill("for ")
+        self.traverse(node.target)
+        self.write(" in ")
+        with self.delimit("range(", ")"):
+            self.traverse(node.start)
+            self.write(", ")
+            self.traverse(node.end)
+            # IPL is [start, end] while Python is [start, end)
+            if node.reverse:
+                self.write(" - 1, -1")
+            else:
+                self.write(" + 1")
+        with self.block():
+            self.traverse(node.body)
+
+    def While(self, node: ast.While) -> None:
+        self.fill("while ")
+        with self.context(_Context.TEST):
+            self.traverse(node.test)
+        with self.block():
+            self.traverse(node.body)
+
     def If(self, node: ast.If) -> None:
         self.fill("if ")
         with self.context(_Context.TEST):

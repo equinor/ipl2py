@@ -480,7 +480,7 @@ class SymbolTableVisitor(ScopeStack, Visitor_Recursive):
             )
         symbol.is_referenced = True
 
-    def for_stmt(self, node: Tree) -> None:
+    def _for_stmt(self, node: Tree) -> None:
         loop_variant, *_ = node.children
         assert isinstance(loop_variant, Token)
 
@@ -493,6 +493,12 @@ class SymbolTableVisitor(ScopeStack, Visitor_Recursive):
             )
         symbol.is_assigned = True
         self._update_referenced_identifiers(node)
+
+    def for_to_stmt(self, node: Tree) -> None:
+        self._for_stmt(node)
+
+    def for_downto_stmt(self, node: Tree) -> None:
+        self._for_stmt(node)
 
     def decl_list(self, tree: Tree) -> None:
         return

@@ -31,7 +31,7 @@ def compile(
     :param pretty: Prettify the print of the parse tree. Only relevant if
         ``print_parse_tree`` or ``print_ast``is set to True. False by default.
     """
-    tree = parse(content, include_comments=include_comments)
+    tree = parse(content, include_comments=include_comments, cache=True)
 
     if print_parse_tree:
         print(tree.pretty() if pretty else tree)
