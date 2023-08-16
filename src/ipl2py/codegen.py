@@ -121,6 +121,51 @@ class CodeGenVisitor(Visitor):
                     comma = True
                 self.traverse(arg)
 
+    def UnaryOp(self, node: ast.UnaryOp) -> None:
+        unops = {
+            "UAdd": "+",
+            "USub": "-",
+            "UNot": "not ",
+        }
+        operator = unops[node.op.__class__.__name__]
+        self.write(operator)
+        needs_parens = (
+            isinstance(node.operand, ast.BinOp)
+            or isinstance(node.operand, ast.Compare)
+            or isinstance(node.operand, ast.BoolOp)
+        )
+        with self.delimit_if("(", ")", needs_parens):
+            self.traverse(node.operand)
+
+    def BinOp(self, node: ast.BinOp) -> None:
+        binops = {
+            "Add": "+",
+            "Sub": "-",
+            "Mult": "*",
+            "Div": "/",
+        }
+        operator = binops[node.op.__class__.__name__]
+        with self.delimit_if("(", ")", self._context[-1] == _Context.COMPARE):
+            with self.context(_Context.COMPARE):
+                self.traverse(node.left)
+                self.write(f" {operator} ")
+                self.traverse(node.right)
+
+    def Compare(self, node: ast.Compare) -> None:
+        cmpops = {
+            "Lt": "<",
+            "LtE": "<=",
+            "Gt": ">",
+            "GtE": ">=",
+            "Eq": "==",
+            "NotEq": "!=",
+        }
+        with self.delimit_if("(", ")", self._context[-1] == _Context.COMPARE):
+            with self.context(_Context.COMPARE):
+                self.traverse(node.left)
+                self.write(f" {cmpops[node.op.__class__.__name__]} ")
+                self.traverse(node.right)
+
     def BoolOp(self, node: ast.BoolOp) -> None:
         operator = node.op.__class__.__name__.lower()
         with self.delimit_if("(", ")", self._context[-1] == _Context.BOOLOP):
