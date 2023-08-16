@@ -26,7 +26,8 @@ param: TYPE decl_type
           | NAME"[,,]"    -> decl_3d
           | NAME "=" test -> decl_assign
 
-for_stmt: "FOR" NAME "FROM" expr_stmt ("DOWNTO"|"TO") expr_stmt "DO" suite "ENDFOR"
+for_stmt: "FOR" NAME "FROM" expr_stmt "TO" expr_stmt "DO" suite "ENDFOR" -> for_to_stmt
+ | "FOR" NAME "FROM" expr_stmt "DOWNTO" expr_stmt "DO" suite "ENDFOR" -> for_downto_stmt
 while_stmt: "WHILE" test "DO" suite "ENDWHILE"
 if_stmt: "IF" test "THEN" suite ["ELSE" suite] "ENDIF"
 halt_stmt: "HALT"

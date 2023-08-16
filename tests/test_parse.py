@@ -163,7 +163,7 @@ ENDIF // 11
     "stmt_type,content",
     [
         (
-            "for_stmt",
+            "for_to_stmt",
             """
 // 2
 FOR i FROM 1 TO 10 DO // 3
@@ -235,7 +235,7 @@ def test_assign_comments_compound_statements(stmt_type, content):
     stmt_suite = stmt_node.children[1]
     if stmt_type == "proc_def":
         stmt_suite = stmt_node.children[2]
-    if stmt_type in ("for_stmt", "func_def"):
+    if stmt_type in ("for_to_stmt", "func_def"):
         stmt_suite = stmt_node.children[3]
     assert stmt_suite.data == "suite"
     assert_comments(

@@ -176,7 +176,8 @@ class CommentVisitor(Visitor_Recursive):
         if node.data in (
             "if_stmt",
             "while_stmt",
-            "for_stmt",
+            "for_to_stmt",
+            "for_downto_stmt",
             "proc_def",
             "func_def",
         ):
