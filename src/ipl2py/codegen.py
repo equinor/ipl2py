@@ -24,6 +24,7 @@ class _Context(Enum):
     MODULE = auto()
     BLOCK = auto()
     TEST = auto()
+    RETURN = auto()
 
 
 class CodeGenVisitor(Visitor):
@@ -37,12 +38,13 @@ class CodeGenVisitor(Visitor):
     Python itself, of course.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, annotations=False) -> None:
+        self._source: List[str] = []
         self._indent = 0
         self._context: Deque[_Context] = deque()
         self._context.append(_Context.MODULE)
-        self._source: List[str] = []
         self._ensure_type: Optional[ipl.Type] = None
+        self._annotations = annotations
 
     def delimit_if(self, start: str, end: str, condition: bool) -> ContextManager[None]:
         if condition:
@@ -66,8 +68,8 @@ class CodeGenVisitor(Visitor):
                 inter()
                 f(x)
 
-    def newline(self) -> None:
-        self.write("\n")
+    def newline(self, num=1) -> None:
+        self.write("\n" * num)
 
     def fill(self, text="") -> None:
         """Indent a piece of text and append it, according to the current
@@ -111,7 +113,8 @@ class CodeGenVisitor(Visitor):
         self._source.extend(text)
 
     def traverse(
-        self, node: Union[ast.Node, List[ast.Node], List[ast.Statement]]
+        self,
+        node: Union[ast.Node, List[ast.Node], List[ast.Statement], List[ast.Param]],
     ) -> None:
         if isinstance(node, list):
             for item in node:
@@ -125,6 +128,40 @@ class CodeGenVisitor(Visitor):
 
     def Module(self, node: ast.Module) -> None:
         self.traverse(node.body)
+
+    def Param(self, node: ast.Param):
+        self.write(node.id)
+        if self._annotations and node.type:
+            self.write(": ")
+            self.write(node.type.value.lower())
+
+    def Function(self, node: ast.Function) -> None:
+        self.newline()
+        self.fill(f"def {node.name.id}")
+        with self.delimit("(", ")"):
+            self.interleave(
+                lambda: self.write(", "),
+                lambda node: self.traverse(node),
+                node.params,
+            )
+
+        # TODO: use a generic set-up to add type annotations
+        if self._annotations and node.name.type:
+            self.write(" -> ")
+            self.write(node.name.type.value.lower())
+        elif self._annotations:
+            self.write(" -> None")
+
+        with self.block():
+            self.traverse(node.body)
+        self.newline()
+
+    def Return(self, node: ast.Return) -> None:
+        with self.context(_Context.RETURN):
+            self.fill("return")
+            if node.value:
+                self.write(" ")
+                self.traverse(node.value)
 
     def For(self, node: ast.For) -> None:
         self.fill("for ")
