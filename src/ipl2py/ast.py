@@ -83,7 +83,7 @@ class Param(Name):
 class Point(Node):
     x: ExprType
     y: ExprType
-    z: Optional[ExprType]
+    z: ExprType
 
 
 @dataclass(frozen=True)
@@ -336,6 +336,7 @@ class AstTransformer(ScopeStack):
             "FLOAT": 0.0,
             "BOOL": False,
             "STRING": "",
+            "POINT": (0.0, 0.0, 0.0),
         }
         return defaults.get(type_.name)
 
@@ -713,7 +714,7 @@ class AstTransformer(ScopeStack):
     def point(self, meta: Meta, children) -> Point:
         x, y, z, *_ = children
         if z is None:
-            z = Constant(value=0)
+            z = Constant(value=0.0)
         return Point(x=x, y=y, z=z)
 
     def TYPE(self, token: Token) -> _DiscardType:
