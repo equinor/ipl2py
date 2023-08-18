@@ -81,6 +81,7 @@ def test_global_point_assignment(to_ast):
         """
 Int a, b
 Point c = (a + b, a)
+Point d = (1, 2, 3)
         """
     )
     a = tree.body[0].targets[0]
@@ -93,7 +94,15 @@ Point c = (a + b, a)
     assert point.x.left == a
     assert point.x.right == b
     assert point.y == a
-    assert point.z == ast.Constant(value=0)
+    assert point.z == ast.Constant(value=0.0)
+    stmt = tree.body[3]
+    assert isinstance(stmt, ast.Assign)
+    assert stmt.targets[0] == ast.Name(id="d", type=ipl.Type.POINT)
+    point = stmt.value
+    assert isinstance(point, ast.Point)
+    assert point.x == ast.Constant(value=1.0)
+    assert point.y == ast.Constant(value=2.0)
+    assert point.z == ast.Constant(value=3.0)
 
 
 def test_global_multi_multi_assign_statements(to_ast):

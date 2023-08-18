@@ -25,6 +25,7 @@ class _Context(Enum):
     BLOCK = auto()
     TEST = auto()
     RETURN = auto()
+    EXPR = auto()
 
 
 class CodeGenVisitor(Visitor):
@@ -99,6 +100,14 @@ class CodeGenVisitor(Visitor):
         self._context.append(ctx)
         yield
         self._context.pop()
+
+    @contextmanager
+    def ensure_type(self, type: Optional[ipl.Type]) -> Generator[None, None, None]:
+        """A context manager for wrapping a context around operations.
+        Useful for knowing about our semantic position within the AST."""
+        self._ensure_type = type
+        yield
+        self._ensure_type = None
 
     @contextmanager
     def delimit(self, start: str, end: str) -> Generator[None, None, None]:
@@ -214,19 +223,18 @@ class CodeGenVisitor(Visitor):
 
     def Assign(self, node: ast.Assign) -> None:
         self.fill()
-        for target in node.targets:
-            self._ensure_type = getattr(target, "type", None)
-            self.traverse(target)
-            self.write(" = ")
-
-        self.traverse(node.value)
-        self._ensure_type = None
+        assign_type = getattr(node.targets[0], "type", None)
+        with self.context(_Context.EXPR), self.ensure_type(assign_type):
+            for target in node.targets:
+                self.traverse(target)
+                self.write(" = ")
+            self.traverse(node.value)
 
     def Call(self, node: ast.Call) -> None:
         if self._context[-1] in [_Context.MODULE, _Context.BLOCK]:
             self.fill()
         self.traverse(node.func)
-        with self.delimit("(", ")"):
+        with self.delimit("(", ")"), self.context(_Context.EXPR):
             comma = False
             for arg in node.args:
                 if comma:
@@ -296,17 +304,52 @@ class CodeGenVisitor(Visitor):
         self.write(".")
         self.write(node.attr)
 
+    def Index3D(self, node: ast.Index3D) -> None:
+        # IPL is 1-based indexed
+        self.traverse(node.i)
+        self.write(" - 1, ")
+        self.traverse(node.j)
+        self.write(" - 1, ")
+        self.traverse(node.k)
+        self.write(" - 1")
+
+    def Index2D(self, node: ast.Index2D) -> None:
+        self.traverse(node.i)
+        self.write(" - 1, ")
+        self.traverse(node.j)
+        self.write(" - 1")
+
+    def Index1D(self, node: ast.Index1D) -> None:
+        self.traverse(node.i)
+        self.write(" - 1")
+
     def Subscript(self, node: ast.Subscript) -> None:
         self.traverse(node.value)
         with self.delimit("[", "]"):
             self.traverse(node.index)
+
+    def Array3D(self, node: ast.Array3D) -> None:
+        self.write("np.zeroes((2, 2, 2))")
+
+    def Array2D(self, node: ast.Array2D) -> None:
+        self.write("np.zeroes((2,2))")
+
+    def Array1D(self, node: ast.Array1D) -> None:
+        self.write("[]")
+
+    def Point(self, node: ast.Point) -> None:
+        coords = [node.x, node.y, node.z]
+        with self.delimit("(", ")"), self.ensure_type(ipl.Type.FLOAT):
+            self.interleave(
+                lambda: self.write(", "), lambda node: self.traverse(node), coords
+            )
 
     def Name(self, node: ast.Name) -> None:
         self.write(node.id)
 
     def Constant(self, node: ast.Constant) -> None:
         val = node.value
-        # Ensure implicit casting doesn't end up modifying the type
+        # Ensure implicit typing doesn't end up modifying the intended type
         if self._ensure_type == ipl.Type.FLOAT and isinstance(val, int):
             val = float(val)  # type: ignore
         elif self._ensure_type == ipl.Type.INT and isinstance(val, float):

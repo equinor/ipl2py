@@ -27,7 +27,7 @@ a[2] = "a"
             """,
             """
 a = 'Hello'
-a[2] = 'a'
+a[2 - 1] = 'a'
             """.strip(),
         ),
         ("Int a = 123\na.length = 1", "a = 123\na.length = 1"),
@@ -493,4 +493,18 @@ world()
     ],
 )
 def test_simple_function_statements(given, expected):
+    assert compile(given) == expected
+
+
+@pytest.mark.parametrize(
+    "given,expected",
+    [
+        ("Point a", "a = (0.0, 0.0, 0.0)"),
+        ("Point a = (1, 2)", "a = (1.0, 2.0, 0.0)"),
+        ("Point a = (1, 2, 3)", "a = (1.0, 2.0, 3.0)"),
+        ("Point a\na = (1, 2, 3)", "a = (0.0, 0.0, 0.0)\na = (1.0, 2.0, 3.0)"),
+        ("Int b\nPoint a = (1, a + 2, 3)", "b = 0\na = (1.0, a + 2.0, 3.0)"),
+    ],
+)
+def test_simple_point_creation(given, expected):
     assert compile(given) == expected
