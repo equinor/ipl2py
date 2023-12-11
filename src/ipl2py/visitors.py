@@ -46,7 +46,7 @@ class Visitor(ABC):
 
 class PrettyPrintVisitor(Visitor):
     def visit(self, node: ast.Node, level=0) -> str:
-        out = [f"{'  '*level}{node.__class__.__name__}"]
+        out = [f"{'  ' * level}{node.__class__.__name__}"]
         for node in self.iter_child_nodes(node):
             out.append(self.visit(node, level + 1))
         return "\n".join(out)
