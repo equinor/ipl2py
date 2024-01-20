@@ -77,7 +77,7 @@ jobs:
           make
 
       - name: Deploy docs
-        if: github.repository_owner == 'equinor' && github.ref == 'refs/heads/main' && matrix.python-version == '3.8'
+        if: github.repository_owner == 'equinor' && github.ref == 'refs/heads/main' && matrix.python-version == '3.8' && github.event.schedule == ''
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: docs/_build/html
